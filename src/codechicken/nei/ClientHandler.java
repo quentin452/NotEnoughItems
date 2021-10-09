@@ -53,11 +53,11 @@ public class ClientHandler
         "WayofTime.alchemicalWizardry.client.nei.NEIAlchemyRecipeHandler"
     };
     private static String[] defaultHeightHackHandlers = {
+            "ic2.neiIntegration.core.recipehandler.FluidCannerRecipeHandler",
             "tconstruct.plugins.nei.RecipeHandlerAlloying",
             "tconstruct.plugins.nei.RecipeHandlerCastingBasin",
             "tconstruct.plugins.nei.RecipeHandlerCastingTable",
             "tconstruct.plugins.nei.RecipeHandlerMelting",
-            "ic2.neiIntegration.core.recipehandler.FluidCannerRecipeHandler"
     };
     private static String[] defaultHandlerOrdering = {
             "# Each line in this file should either be a comment (starts with '#') or an ordering.",
@@ -65,7 +65,7 @@ public class ClientHandler
             "# Handlers will be sorted in order of number ascending, so smaller numbers first.",
             "# Any handlers that are missing from this file will be assigned to 0.",
             "# Negative numbers are fine.",
-            "# If you delete this file, it will be regenerated with all registered handler IDs."
+            "# If you delete this file, it will be regenerated with all registered handler IDs.",
     };
     private static ClientHandler instance;
 

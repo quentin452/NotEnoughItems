@@ -94,6 +94,42 @@ public abstract class GuiRecipe extends GuiContainer implements IGuiContainerOve
         
     }
 
+    /**
+     * Many old mods assumed a fixed NEI window height of {@code 166} pixels. Now that this is no
+     * longer the case, their fluid mouseover handling is broken. This helper class fixes these old
+     * mods by hacking the {@link #height} property's value so that these old mods' calculations
+     * return the correct value for the new height.
+     *
+     * <p>This class is an {@link AutoCloseable} so that it can be used with try-with-resources,
+     * which will ensure that {@link #height} is returned to the correct value afterwards.
+     */
+    private class HeightHack implements AutoCloseable {
+        private final int trueHeight;
+
+        private HeightHack() {
+            trueHeight = height;
+
+            if (NEIClientConfig.heightHackHandlers.contains(handler.getHandlerId())) {
+                // The old mods use the calculation ((height - 166) / 2) to compute the y-value of
+                // the top edge of the NEI window.
+                // guiTop is exactly that: the y-value of the top edge of the NEI window.
+                // So we set height to be equal to the inverse of this calculation, applied to
+                // guiTop, so that old mods get the right result back when they use this calculation.
+                height = (2 * guiTop) + 166;
+
+                // For reference, in case we ever need to modify width as well:
+                // the legacy calculation used for width is ((width - 176) / 2), which should
+                // evaluate to be equal to guiWidth (the x-value of the left edge of the NEI window).
+                // So if we wanted to override width as well, we'd do this:
+                // width = (2 * guiWidth) + 176;
+            }
+        }
+
+        @Override
+        public void close() {
+            height = trueHeight;
+        }
+    }
    
     @Override
     @SuppressWarnings("unchecked")
@@ -129,8 +165,6 @@ public abstract class GuiRecipe extends GuiContainer implements IGuiContainerOve
         
         recipeTabs.initLayout();
         refreshPage();
-
-
     }
 
     @SuppressWarnings("unchecked")
@@ -196,14 +230,11 @@ public abstract class GuiRecipe extends GuiContainer implements IGuiContainerOve
         if (GuiContainerManager.getManager(this).lastKeyTyped(i, c))
             return;
 
-        int trueHeight = startHeightHack();
-        for (int recipe : getRecipeIndices()) {
-            if (handler.keyTyped(this, c, i, recipe)) {
-                endHeightHack(trueHeight);
-                return;
-            }
+        try (HeightHack heightHack = new HeightHack()) {
+            for (int recipe : getRecipeIndices())
+                if (handler.keyTyped(this, c, i, recipe))
+                    return;
         }
-        endHeightHack(trueHeight);
 
         if (i == mc.gameSettings.keyBindInventory.getKeyCode())
             mc.displayGuiScreen(firstGui);
@@ -222,14 +253,11 @@ public abstract class GuiRecipe extends GuiContainer implements IGuiContainerOve
 
     @Override
     protected void mouseClicked(int x, int y, int button) {
-        int trueHeight = startHeightHack();
-        for (int recipe : getRecipeIndices()) {
-            if (handler.mouseClicked(this, button, recipe)) {
-                endHeightHack(trueHeight);
-                return;
-            }
+        try (HeightHack heightHack = new HeightHack()) {
+            for (int recipe : getRecipeIndices())
+                if (handler.mouseClicked(this, button, recipe))
+                    return;
         }
-        endHeightHack(trueHeight);
 
         if (recipeTabs.mouseClicked(x, y, button))
             return;
@@ -285,11 +313,11 @@ public abstract class GuiRecipe extends GuiContainer implements IGuiContainerOve
 
     @Override
     public List<String> handleTooltip(GuiContainer gui, int mousex, int mousey, List<String> currenttip) {
-        int trueHeight = startHeightHack();
-        for (int i : getRecipeIndices())
-            currenttip = handler.handleTooltip(this, currenttip, i);
+        try (HeightHack heightHack = new HeightHack()) {
+            for (int i : getRecipeIndices())
+                currenttip = handler.handleTooltip(this, currenttip, i);
+        }
         recipeTabs.handleTooltip(mousex, mousey, currenttip);
-        endHeightHack(trueHeight);
         return currenttip;
     }
 
@@ -306,47 +334,6 @@ public abstract class GuiRecipe extends GuiContainer implements IGuiContainerOve
     @Override
     public List<String> handleItemDisplayName(GuiContainer gui, ItemStack itemstack, List<String> currenttip) {
         return currenttip;
-    }
-
-    /**
-     * Many old mods assumed a fixed NEI window height of {@code 166} pixels. Now that this is no
-     * longer the case, their fluid mouseover handling is broken. This method fixes these old mods
-     * by hacking the {@link #height} property's value so that these old mods' calculations return
-     * the correct value for the new height.
-     *
-     * <p><b>Don't forget to call {@link #endHeightHack(int)}, or weird things might happen!</b>
-     *
-     * @return the original value of {@link #height}; pass this in to {@link #endHeightHack(int)}!
-     */
-    private int startHeightHack() {
-        int trueHeight = height;
-
-        if (NEIClientConfig.heightHackHandlers.contains(handler.getHandlerId())) {
-            // The old mods use the calculation ((height - 166) / 2) to compute the y-value of the
-            // top edge of the NEI window.
-            // guiTop is exactly that: the y-value of the top edge of the NEI window.
-            // So we set height to be equal to the inverse of this calculation, applied to guiTop,
-            // so that old mods get the right result back when they use this calculation.
-            height = (2 * guiTop) + 166;
-
-            // For reference, in case we ever need to modify width as well:
-            // the legacy calculation used for width is ((width - 176) / 2), which should evaluate
-            // to be equal to guiWidth (the x-value of the left edge of the NEI window).
-            // So if we wanted to override width as well, we'd do this:
-            // width = (2 * guiWidth) + 176;
-        }
-
-        return trueHeight;
-    }
-
-    /**
-     * Sets {@link #height} back to its original value. See the JavaDoc for
-     * {@link #startHeightHack()} for more details.
-     *
-     * @param trueHeight the return value of {@link #startHeightHack()}
-     */
-    private void endHeightHack(int trueHeight) {
-        height = trueHeight;
     }
 
     private void nextPage() {
@@ -485,24 +472,24 @@ public abstract class GuiRecipe extends GuiContainer implements IGuiContainerOve
 
         GL11.glPushMatrix();
         GL11.glTranslatef(5, 32 + yShift, 0);
-        int trueHeight = startHeightHack();
-        for (int i = page * recipesPerPage; i < handler.numRecipes() && i < (page + 1) * recipesPerPage; i++) {
-            handler.drawForeground(i);
-            if (drawItemPresence && isMouseOverOverlayButton(i - page * recipesPerPage)
-                    && firstGui.inventorySlots != null) {
-                List<PositionedStack> ingredients = handler.getIngredientStacks(i);
-                if (itemPresenceCacheRecipe != i || itemPresenceCacheSlots == null || itemPresenceCacheSlots.size() != ingredients.size()) {
-                    updateItemPresenceCache(i);
+        try (HeightHack heightHack = new HeightHack()) {
+            for (int i = page * recipesPerPage; i < handler.numRecipes() && i < (page + 1) * recipesPerPage; i++) {
+                handler.drawForeground(i);
+                if (drawItemPresence && isMouseOverOverlayButton(i - page * recipesPerPage)
+                        && firstGui.inventorySlots != null) {
+                    List<PositionedStack> ingredients = handler.getIngredientStacks(i);
+                    if (itemPresenceCacheRecipe != i || itemPresenceCacheSlots == null || itemPresenceCacheSlots.size() != ingredients.size()) {
+                        updateItemPresenceCache(i);
+                    }
+                    for (int j = 0; j < ingredients.size(); j++) {
+                        PositionedStack stack = ingredients.get(j);
+                        boolean isPresent = itemPresenceCacheSlots.get(j);
+                        LayoutManager.drawItemPresenceOverlay(stack.relx, stack.rely, isPresent);
+                    }
                 }
-                for (int j = 0; j < ingredients.size(); j++) {
-                    PositionedStack stack = ingredients.get(j);
-                    boolean isPresent = itemPresenceCacheSlots.get(j);
-                    LayoutManager.drawItemPresenceOverlay(stack.relx, stack.rely, isPresent);
-                }
+                GL11.glTranslatef(0, handlerInfo.getHeight(), 0);
             }
-            GL11.glTranslatef(0, handlerInfo.getHeight(), 0);
         }
-        endHeightHack(trueHeight);
         GL11.glPopMatrix();
     }
 
@@ -535,12 +522,12 @@ public abstract class GuiRecipe extends GuiContainer implements IGuiContainerOve
 
         GL11.glPushMatrix();
         GL11.glTranslatef(j + 5, k + 32 + yShift, 0);
-        int trueHeight = startHeightHack();
-        for (int i = page * recipesPerPage; i < handler.numRecipes() && i < (page + 1) * recipesPerPage; i++) {
-            handler.drawBackground(i);
-            GL11.glTranslatef(0, handlerInfo.getHeight(), 0);
+        try (HeightHack heightHack = new HeightHack()) {
+            for (int i = page * recipesPerPage; i < handler.numRecipes() && i < (page + 1) * recipesPerPage; i++) {
+                handler.drawBackground(i);
+                GL11.glTranslatef(0, handlerInfo.getHeight(), 0);
+            }
         }
-        endHeightHack(trueHeight);
         GL11.glPopMatrix();
     }
 
