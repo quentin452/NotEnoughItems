@@ -238,10 +238,9 @@ public class ClientHandler
             return;
         }
 
-        try {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()))) {
             NEIClientConfig.logger.info("Loading handler ordering from file {}", file);
-            BufferedReader input = new BufferedReader(new InputStreamReader(url.openStream()));
-            CSVParser csvParser = CSVFormat.EXCEL.withCommentMarker('#').parse(input);
+            CSVParser csvParser = CSVFormat.EXCEL.withCommentMarker('#').parse(reader);
             for (CSVRecord record : csvParser) {
                 final String handlerId = record.get(0);
 
@@ -253,8 +252,7 @@ public class ClientHandler
                     continue;
                 }
 
-                if (ordering != 0)
-                    NEIClientConfig.handlerOrdering.put(handlerId, ordering);
+                NEIClientConfig.handlerOrdering.put(handlerId, ordering);
             }
         } catch (Exception e) {
             NEIClientConfig.logger.info("Error parsing CSV");
