@@ -18,16 +18,13 @@ import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.guihook.IContainerTooltipHandler;
 import codechicken.nei.guihook.IGuiClientSide;
 import codechicken.nei.guihook.IGuiHandleMouseWheel;
-import codechicken.nei.recipe.StackInfo;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderHelper;
-import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.Item;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
@@ -38,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -112,7 +110,11 @@ public abstract class GuiRecipe extends GuiContainer implements IGuiContainerOve
         private HeightHack() {
             trueHeight = height;
 
-            if (NEIClientConfig.heightHackHandlers.contains(handler.getHandlerId())) {
+            boolean applyHeightHack =
+                    NEIClientConfig.heightHackHandlerRegex.stream()
+                            .map(pattern -> pattern.matcher(handler.getHandlerId()))
+                            .anyMatch(Matcher::matches);
+            if (applyHeightHack) {
                 // The old mods use the calculation ((height - 166) / 2) to compute the y-value of
                 // the top edge of the NEI window.
                 // guiTop is exactly that: the y-value of the top edge of the NEI window.

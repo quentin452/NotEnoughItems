@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 public class NEIClientConfig {
     private static boolean configLoaded;
@@ -68,8 +69,9 @@ public class NEIClientConfig {
     // Set of handlers that need to be run in serial
     public static HashSet<String> serialHandlers = new HashSet<>();
 
-    // Set of handler ID of handlers that need the hack in GuiRecipe.startHeightHack().
-    public static HashSet<String> heightHackHandlers = new HashSet<>();
+    // Set of regexes matching handler ID of handlers that need the hack in GuiRecipe.startHeightHack().
+    // We use regex here so that we can apply the height hack to entire mods with one entry.
+    public static HashSet<Pattern> heightHackHandlerRegex = new HashSet<>();
 
     // Map of handler ID to sort order.
     // Handlers will be sorted in ascending order, so smaller numbers show up earlier.
