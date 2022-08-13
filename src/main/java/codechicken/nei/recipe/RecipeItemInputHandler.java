@@ -3,7 +3,6 @@ package codechicken.nei.recipe;
 import codechicken.nei.ItemPanels;
 import codechicken.nei.LayoutManager;
 import codechicken.nei.NEIClientConfig;
-import codechicken.nei.NEIClientUtils;
 import codechicken.nei.PositionedStack;
 import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.guihook.IContainerInputHandler;
@@ -12,41 +11,52 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.item.ItemStack;
 
 public class RecipeItemInputHandler implements IContainerInputHandler {
+
     @Override
     public boolean lastKeyTyped(GuiContainer gui, char keyChar, int keyCode) {
-        ItemStack stackover = GuiContainerManager.getStackMouseOver(gui);
-        if (stackover == null) return false;
 
-        if (keyCode == NEIClientConfig.getKeyBinding("gui.recipe"))
-            return GuiCraftingRecipe.openRecipeGui("item", stackover.copy());
-
-        if (keyCode == NEIClientConfig.getKeyBinding("gui.usage"))
-            return GuiUsageRecipe.openRecipeGui("item", stackover.copy());
-
-        if (keyCode == NEIClientConfig.getKeyBinding("gui.bookmark")) {
-            NEIClientConfig.logger.debug("Adding or removing {} from bookmarks", stackover.getDisplayName());
-            List<PositionedStack> ingredients = null;
-            String handlerName = "";
-
-            if (gui instanceof GuiRecipe && NEIClientConfig.saveCurrentRecipeInBookmarksEnabled()) {
-                ingredients = ((GuiRecipe<?>) gui).getFocusedRecipeIngredients();
-                handlerName = ((GuiRecipe<?>) gui).getHandlerName();
-            }
-
-            ItemPanels.bookmarkPanel.addOrRemoveItem(stackover.copy(), handlerName, ingredients);
+        if (NEIClientConfig.isKeyHashDown("gui.overlay_hide")) {
+            return hideOverlayRecipe();
         }
 
-        if (keyCode == NEIClientConfig.getKeyBinding("gui.overlay")) {
-            if (NEIClientUtils.controlKey()) {
-                LayoutManager.overlayRenderer = null;
-                return true;
-            }
-            if (!NEIClientConfig.saveCurrentRecipeInBookmarksEnabled()) return false;
-            final BookmarkRecipeId mouseOverRecipeId = ItemPanels.bookmarkPanel.getBookmarkMouseOverRecipeId();
-            if (mouseOverRecipeId == null
-                    || mouseOverRecipeId.ingredients == null
-                    || mouseOverRecipeId.ingredients.isEmpty()) return false;
-            return GuiCraftingRecipe.openRecipeGui("item", true, stackover.copy());
+        ItemStack stackover = GuiContainerManager.getStackMouseOver(gui);
+
+        if (stackover == null) {
+            return false;
+        }
+
+        stackover = stackover.copy();
+
+        if (NEIClientConfig.isKeyHashDown("gui.overlay")) {
+            return openOverlayRecipe(gui, stackover, false);
+        }
+
+        if (NEIClientConfig.isKeyHashDown("gui.overlay_use")) {
+            return openOverlayRecipe(gui, stackover, true);
+        }
+
+        if (NEIClientConfig.isKeyHashDown("gui.recipe")) {
+            return GuiCraftingRecipe.openRecipeGui("item", stackover);
+        }
+
+        if (NEIClientConfig.isKeyHashDown("gui.usage")) {
+            return GuiUsageRecipe.openRecipeGui("item", stackover);
+        }
+
+        if (NEIClientConfig.isKeyHashDown("gui.bookmark")) {
+            return saveRecipeInBookmark(gui, stackover, false, false);
+        }
+
+        if (NEIClientConfig.isKeyHashDown("gui.bookmark_recipe")) {
+            return saveRecipeInBookmark(gui, stackover, true, false);
+        }
+
+        if (NEIClientConfig.isKeyHashDown("gui.bookmark_count")) {
+            return saveRecipeInBookmark(gui, stackover, false, true);
+        }
+
+        if (NEIClientConfig.isKeyHashDown("gui.bookmark_recipe_count")) {
+            return saveRecipeInBookmark(gui, stackover, true, true);
         }
 
         return false;
@@ -54,22 +64,57 @@ public class RecipeItemInputHandler implements IContainerInputHandler {
 
     @Override
     public boolean mouseClicked(GuiContainer gui, int mousex, int mousey, int button) {
+        if (!(gui instanceof GuiRecipe)
+                || ItemPanels.itemPanel.contains(mousex, mousey)
+                || ItemPanels.bookmarkPanel.contains(mousex, mousey)) return false;
+
         ItemStack stackover = GuiContainerManager.getStackMouseOver(gui);
 
-        if (stackover == null) return false;
+        if (stackover != null) {
+            if (button == 0) {
+                return GuiCraftingRecipe.openRecipeGui("item", stackover.copy());
+            } else if (button == 1) {
+                return GuiUsageRecipe.openRecipeGui("item", stackover.copy());
+            }
+        }
 
-        if (!(gui instanceof GuiRecipe)) return false;
+        return false;
+    }
 
-        // disabled open recipe gui if hold shift (player have move recipe)
-        if (button == 0
-                && ItemPanels.bookmarkPanel.getStackMouseOver(mousex, mousey) != null
-                && NEIClientUtils.shiftKey()) {
+    private boolean hideOverlayRecipe() {
+
+        if (LayoutManager.overlayRenderer != null) {
+            LayoutManager.overlayRenderer = null;
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean openOverlayRecipe(GuiContainer gui, ItemStack stack, boolean shift) {
+
+        if (gui instanceof GuiRecipe) {
             return false;
         }
 
-        if (button == 0) return GuiCraftingRecipe.openRecipeGui("item", stackover.copy());
+        return GuiCraftingRecipe.openRecipeGui("item", true, shift, stack);
+    }
 
-        if (button == 1) return GuiUsageRecipe.openRecipeGui("item", stackover.copy());
+    private boolean saveRecipeInBookmark(
+            GuiContainer gui, ItemStack stack, boolean saveIngredients, boolean saveStackSize) {
+
+        if (stack != null) {
+            List<PositionedStack> ingredients = null;
+            String handlerName = "";
+
+            if (gui instanceof GuiRecipe) {
+                ingredients = ((GuiRecipe<?>) gui).getFocusedRecipeIngredients();
+                handlerName = ((GuiRecipe<?>) gui).getHandlerName();
+            }
+
+            ItemPanels.bookmarkPanel.addOrRemoveItem(stack, handlerName, ingredients, saveIngredients, saveStackSize);
+            return true;
+        }
 
         return false;
     }

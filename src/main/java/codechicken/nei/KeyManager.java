@@ -3,7 +3,6 @@ package codechicken.nei;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map.Entry;
-import org.lwjgl.input.Keyboard;
 
 /**
  * Good old down/held/up keystate tracker
@@ -24,9 +23,9 @@ public class KeyManager {
 
     public static void tickKeyStates() {
         for (Entry<String, KeyState> entry : keyStates.entrySet()) {
-            int keyCode = NEIClientConfig.getKeyBinding(entry.getKey());
-            boolean down = keyCode != 0 && Keyboard.isKeyDown(keyCode);
-            KeyState state = entry.getValue();
+            final boolean down = NEIClientConfig.isKeyHashDown(entry.getKey());
+            final KeyState state = entry.getValue();
+
             if (down) {
                 state.down = !state.held;
                 state.up = false;
@@ -34,6 +33,7 @@ public class KeyManager {
                 state.up = state.held;
                 state.down = false;
             }
+
             state.held = down;
         }
 

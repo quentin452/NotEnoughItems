@@ -416,7 +416,7 @@ public class PresetsWidget extends Widget {
 
         public MouseSelection(int slotIndex, boolean append) {
             final ItemsGrid grid = ItemPanels.itemPanel.getGrid();
-            final Rectangle4i rec = grid.getSlotRect(slotIndex - (grid.getPage() - 1) * grid.getPerPage());
+            final Rectangle4i rec = grid.getItemRect(slotIndex);
 
             this.append = append;
             endIndex = slotIndex;
@@ -832,7 +832,7 @@ public class PresetsWidget extends Widget {
                 mouseSelection.endIndex = slot.slotIndex;
                 mouseSelection.items.clear();
 
-                final Rectangle4i rec = grid.getSlotRect(slot.slotIndex - (grid.getPage() - 1) * grid.getPerPage());
+                final Rectangle4i rec = grid.getItemRect(slot.slotIndex);
                 final Rectangle4i sel = new Rectangle4i(
                         Math.min(rec.x, mouseSelection.startX),
                         Math.min(rec.y, mouseSelection.startY),

@@ -1,9 +1,13 @@
 package codechicken.nei.recipe;
 
+import static codechicken.lib.gui.GuiDraw.getMousePosition;
+
+import codechicken.nei.ItemPanel.ItemPanelSlot;
 import codechicken.nei.ItemPanels;
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.NEIClientUtils;
 import codechicken.nei.PositionedStack;
+import java.awt.Point;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
@@ -15,36 +19,41 @@ public class GuiCraftingRecipe extends GuiRecipe<ICraftingHandler> {
     public static ArrayList<ICraftingHandler> serialCraftingHandlers = new ArrayList<>();
 
     public static boolean openRecipeGui(String outputId, Object... results) {
-        return openRecipeGui(outputId, false, results);
+        return openRecipeGui(outputId, false, false, results);
     }
 
-    public static boolean openRecipeGui(String outputId, Boolean overlay, Object... results) {
-        RecipeHandlerQuery<ICraftingHandler> recipeQuery = new RecipeHandlerQuery<>(
-                h -> h.getRecipeHandler(outputId, results), craftinghandlers, serialCraftingHandlers);
-        ArrayList<ICraftingHandler> handlers = recipeQuery.runWithProfiling("recipe.concurrent.crafting");
-        if (handlers.isEmpty()) return false;
+    public static boolean openRecipeGui(
+            String outputId, final Boolean overlay, final Boolean shift, Object... results) {
+        final Minecraft mc = NEIClientUtils.mc();
 
-        Minecraft mc = NEIClientUtils.mc();
-
-        BookmarkRecipeId recipeId = (NEIClientConfig.saveCurrentRecipeInBookmarksEnabled() && "item".equals(outputId))
+        final BookmarkRecipeId recipeId = "item".equals(outputId)
                 ? getRecipeId(mc.currentScreen, (ItemStack) results[0])
-                : getCurrentRecipe();
+                : getCurrentRecipe(mc.currentScreen);
 
         if (overlay && recipeId == null) return false;
 
-        GuiCraftingRecipe gui = new GuiCraftingRecipe(handlers, recipeId);
+        final RecipeHandlerQuery<ICraftingHandler> recipeQuery = new RecipeHandlerQuery<>(
+                h -> h.getRecipeHandler(outputId, results), craftinghandlers, serialCraftingHandlers);
 
-        mc.displayGuiScreen(gui);
+        final ArrayList<ICraftingHandler> handlers = recipeQuery.runWithProfiling("recipe.concurrent.crafting");
 
-        if (recipeId != null && (!NEIClientUtils.shiftKey() || overlay)) {
-            gui.openTargetRecipe(gui.recipeId);
+        if (!handlers.isEmpty()) {
+            GuiCraftingRecipe gui = new GuiCraftingRecipe(handlers, recipeId);
+
+            mc.displayGuiScreen(gui);
+
+            if (recipeId != null) {
+                gui.openTargetRecipe(gui.recipeId);
+            }
+
+            if (overlay) {
+                gui.overlayRecipe(gui.recipeId.position, shift);
+            }
+
+            return true;
         }
 
-        if (overlay) {
-            gui.overlayRecipe(gui.recipeId.position);
-        }
-
-        return true;
+        return false;
     }
 
     protected static BookmarkRecipeId getRecipeId(GuiScreen gui, ItemStack stackover) {
@@ -56,6 +65,13 @@ public class GuiCraftingRecipe extends GuiRecipe<ICraftingHandler> {
             if (ingredients != null && !ingredients.isEmpty()) {
                 return new BookmarkRecipeId(handlerName, ingredients);
             }
+        }
+
+        final Point mouseover = getMousePosition();
+        ItemPanelSlot panelSlot = ItemPanels.bookmarkPanel.getSlotMouseOver(mouseover.x, mouseover.y);
+
+        if (panelSlot != null) {
+            return ItemPanels.bookmarkPanel.getBookmarkRecipeId(panelSlot.slotIndex);
         }
 
         return ItemPanels.bookmarkPanel.getBookmarkRecipeId(stackover);

@@ -4,6 +4,7 @@ import static codechicken.lib.gui.GuiDraw.changeTexture;
 import static codechicken.lib.gui.GuiDraw.drawTexturedModalRect;
 import static codechicken.lib.gui.GuiDraw.getMousePosition;
 
+import codechicken.lib.vec.Rectangle4i;
 import codechicken.nei.ItemList;
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.NEIClientUtils;
@@ -178,8 +179,12 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
          *         is available
          */
         public List<PositionedStack> getCycledIngredients(int cycle, List<PositionedStack> ingredients) {
-            for (int itemIndex = 0; itemIndex < ingredients.size(); itemIndex++)
-                randomRenderPermutation(ingredients.get(itemIndex), cycle + itemIndex);
+
+            if (!NEIClientUtils.shiftKey()) {
+                for (int itemIndex = 0; itemIndex < ingredients.size(); itemIndex++) {
+                    randomRenderPermutation(ingredients.get(itemIndex), cycle + itemIndex);
+                }
+            }
 
             return ingredients;
         }
@@ -286,8 +291,11 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
         public boolean lastKeyTyped(GuiContainer gui, char keyChar, int keyCode) {
             if (!canHandle(gui)) return false;
 
-            if (keyCode == NEIClientConfig.getKeyBinding("gui.recipe")) return transferRect(gui, false);
-            else if (keyCode == NEIClientConfig.getKeyBinding("gui.usage")) return transferRect(gui, true);
+            if (NEIClientConfig.isKeyHashDown("gui.recipe")) {
+                return transferRect(gui, false);
+            } else if (NEIClientConfig.isKeyHashDown("gui.usage")) {
+                return transferRect(gui, true);
+            }
 
             return false;
         }
@@ -645,8 +653,12 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
 
     @Override
     public boolean keyTyped(GuiRecipe<?> gui, char keyChar, int keyCode, int recipe) {
-        if (keyCode == NEIClientConfig.getKeyBinding("gui.recipe")) return transferRect(gui, recipe, false);
-        else if (keyCode == NEIClientConfig.getKeyBinding("gui.usage")) return transferRect(gui, recipe, true);
+
+        if (NEIClientConfig.isKeyHashDown("gui.recipe")) {
+            return transferRect(gui, recipe, false);
+        } else if (NEIClientConfig.isKeyHashDown("gui.usage")) {
+            return transferRect(gui, recipe, true);
+        }
 
         return false;
     }
@@ -661,6 +673,28 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
 
     @Override
     public boolean mouseScrolled(GuiRecipe<?> gui, int scroll, int recipe) {
+        if (!NEIClientUtils.shiftKey()) return false;
+
+        final Point offset = gui.getRecipePosition(recipe);
+        final Point pos = getMousePosition();
+        final Point relMouse = new Point(pos.x - gui.guiLeft - offset.x, pos.y - gui.guiTop - offset.y);
+
+        for (PositionedStack pStack : getIngredientStacks(recipe)) {
+            if ((new Rectangle4i(pStack.relx, pStack.rely, 18, 18)).contains(relMouse.x, relMouse.y)) {
+                int index = pStack.items.length + scroll;
+
+                for (int i = 0; i < pStack.items.length; i++) {
+                    if (NEIServerUtils.areStacksSameTypeCraftingWithNBT(pStack.items[i], pStack.item)) {
+                        index = index + i;
+                        break;
+                    }
+                }
+
+                pStack.setPermutationToRender(index % pStack.items.length);
+                return true;
+            }
+        }
+
         return false;
     }
 

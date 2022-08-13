@@ -5,7 +5,6 @@ import static codechicken.lib.gui.GuiDraw.drawRect;
 import static codechicken.lib.gui.GuiDraw.drawTexturedModalRect;
 import static codechicken.nei.NEIClientConfig.canPerformAction;
 import static codechicken.nei.NEIClientConfig.disabledActions;
-import static codechicken.nei.NEIClientConfig.getKeyBinding;
 import static codechicken.nei.NEIClientConfig.getOptionList;
 import static codechicken.nei.NEIClientConfig.getSearchExpression;
 import static codechicken.nei.NEIClientConfig.hasSMPCounterPart;
@@ -88,7 +87,7 @@ public class LayoutManager
     public static BookmarkPanel bookmarkPanel;
     public static SubsetWidget dropDown;
     public static PresetsWidget presetsPanel;
-    public static TextField searchField;
+    public static SearchField searchField;
 
     public static ButtonCycled options;
     public static ButtonCycled bookmarksButton;
@@ -209,11 +208,13 @@ public class LayoutManager
 
     @Override
     public boolean lastKeyTyped(GuiContainer gui, char keyChar, int keyID) {
-        if (keyID == getKeyBinding("gui.hide")) {
+
+        if (NEIClientConfig.isKeyHashDown("gui.hide")) {
             toggleBooleanSetting("inventory.hidden");
             return true;
         }
-        if (keyID == getKeyBinding("gui.hide_bookmarks")) {
+
+        if (NEIClientConfig.isKeyHashDown("gui.hide_bookmarks")) {
             toggleBooleanSetting("inventory.bookmarksEnabled");
             return true;
         }
@@ -221,6 +222,7 @@ public class LayoutManager
         if (isEnabled() && !isHidden()) {
             for (Widget widget : controlWidgets) if (inputFocused == null) widget.lastKeyTyped(keyID, keyChar);
         }
+
         return false;
     }
 
@@ -637,6 +639,7 @@ public class LayoutManager
             addWidget(presetsPanel);
         }
 
+        searchField.setVisible(visiblity.showSearchSection);
         if (visiblity.showSearchSection) {
             addWidget(searchField);
         }

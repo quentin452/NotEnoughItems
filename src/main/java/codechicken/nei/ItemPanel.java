@@ -27,7 +27,6 @@ public class ItemPanel extends PanelWidget {
         // *looks angrily at AppleCore*
         return super.getStackMouseOver(mousex, mousey);
     }
-    ;
 
     public Button more;
     public Button less;
@@ -155,6 +154,8 @@ public class ItemPanel extends PanelWidget {
     }
 
     protected int resizeFooter(GuiContainer gui) {
+        if (!NEIClientConfig.showItemQuantityWidget()) return 0;
+
         final int BUTTON_SIZE = 16;
 
         more.w = less.w = BUTTON_SIZE;
@@ -174,7 +175,7 @@ public class ItemPanel extends PanelWidget {
     public void setVisible() {
         super.setVisible();
 
-        if (grid.getPerPage() > 0) {
+        if (grid.getPerPage() > 0 && NEIClientConfig.showItemQuantityWidget()) {
             LayoutManager.addWidget(more);
             LayoutManager.addWidget(less);
             LayoutManager.addWidget(quantity);
@@ -185,7 +186,7 @@ public class ItemPanel extends PanelWidget {
         ItemStack stack = grid.getItem(mouseDownSlot);
 
         if (stack != null) {
-            int amount = NEIClientConfig.getItemQuantity();
+            int amount = NEIClientConfig.showItemQuantityWidget() ? NEIClientConfig.getItemQuantity() : 0;
 
             if (amount == 0) {
                 amount = stack.getMaxStackSize();

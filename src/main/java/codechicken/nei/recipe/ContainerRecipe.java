@@ -84,8 +84,12 @@ public class ContainerRecipe extends Container {
 
         ItemStack stack = recipeInventory.getStackInSlot(slot);
         if (stack != null) {
-            if (button == 0) GuiCraftingRecipe.openRecipeGui("item", stack);
-            else if (button == 1) GuiUsageRecipe.openRecipeGui("item", stack);
+
+            if (button == 0) {
+                GuiCraftingRecipe.openRecipeGui("item", stack);
+            } else if (button == 1) {
+                GuiUsageRecipe.openRecipeGui("item", stack);
+            }
         }
         return null;
     }

@@ -27,7 +27,7 @@ public class BookmarkRecipeId {
         for (Object pos : stacks) {
 
             if (pos instanceof PositionedStack) {
-                pos = getItemStackWithMinimumDamage(((PositionedStack) pos).items);
+                pos = StackInfo.getItemStackWithMinimumDamage(((PositionedStack) pos).items);
             }
 
             if (pos instanceof ItemStack) {
@@ -67,7 +67,8 @@ public class BookmarkRecipeId {
         Short idx = 0;
 
         for (PositionedStack pStack : stacks) {
-            final NBTTagCompound tagCompoundA = StackInfo.itemStackToNBT(getItemStackWithMinimumDamage(pStack.items));
+            final NBTTagCompound tagCompoundA =
+                    StackInfo.itemStackToNBT(StackInfo.getItemStackWithMinimumDamage(pStack.items));
             final NBTTagCompound tagCompoundB = ingredients.get(idx);
 
             if (tagCompoundB == null || !tagCompoundB.equals(tagCompoundA)) {
@@ -78,22 +79,6 @@ public class BookmarkRecipeId {
         }
 
         return true;
-    }
-
-    public ItemStack getItemStackWithMinimumDamage(ItemStack[] stacks) {
-        int damage = Short.MAX_VALUE;
-        ItemStack result = stacks[0];
-
-        if (stacks.length > 1) {
-            for (ItemStack stack : stacks) {
-                if (stack.getItemDamage() < damage) {
-                    damage = stack.getItemDamage();
-                    result = stack;
-                }
-            }
-        }
-
-        return result.copy();
     }
 
     public JsonObject toJsonObject() {

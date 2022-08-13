@@ -178,7 +178,7 @@ public class ItemInfo {
         API.addOption(new RegistryDumper<Item>("tools.dump.item") {
             @Override
             public String[] header() {
-                return new String[] {"Name", "ID", "Has Block", "Mod", "Class"};
+                return new String[] {"Name", "ID", "Has Block", "Mod", "Class", "Display Name"};
             }
 
             @Override
@@ -188,7 +188,9 @@ public class ItemInfo {
                     Integer.toString(id),
                     Boolean.toString(Block.getBlockFromItem(item) != Blocks.air),
                     ItemInfo.itemOwners.get(item),
-                    item.getClass().getCanonicalName()
+                    item.getClass().getCanonicalName(),
+                    EnumChatFormatting.getTextWithoutFormattingCodes(
+                            GuiContainerManager.itemDisplayNameShort(new ItemStack(item)))
                 };
             }
 
@@ -200,17 +202,22 @@ public class ItemInfo {
         API.addOption(new RegistryDumper<Block>("tools.dump.block") {
             @Override
             public String[] header() {
-                return new String[] {"Name", "ID", "Has Item", "Mod", "Class"};
+                return new String[] {"Name", "ID", "Has Item", "Mod", "Class", "Display Name"};
             }
 
             @Override
-            public String[] dump(Block item, int id, String name) {
+            public String[] dump(Block block, int id, String name) {
+                final Item item = Item.getItemFromBlock(block);
                 return new String[] {
                     name,
                     Integer.toString(id),
-                    Boolean.toString(Item.getItemFromBlock(item) != null),
-                    ItemInfo.itemOwners.get(item),
-                    item.getClass().getCanonicalName()
+                    Boolean.toString(item != null),
+                    ItemInfo.itemOwners.get(block),
+                    block.getClass().getCanonicalName(),
+                    item != null
+                            ? EnumChatFormatting.getTextWithoutFormattingCodes(
+                                    GuiContainerManager.itemDisplayNameShort(new ItemStack(item)))
+                            : "null"
                 };
             }
 

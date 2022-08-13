@@ -223,10 +223,6 @@ public class NEIClientConfig {
                 .setComment("Enable/disable bookmarks")
                 .getBooleanValue(true);
         API.addOption(new OptionToggleButton("inventory.bookmarksEnabled", true));
-        tag.getTag("inventory.saveCurrentRecipeInBookmarksEnabled")
-                .setComment("Save Current Recipe in Bookmarks")
-                .getBooleanValue(true);
-        API.addOption(new OptionToggleButton("inventory.saveCurrentRecipeInBookmarksEnabled", true));
         tag.getTag("inventory.useNBTInBookmarks")
                 .setComment("Use NBT in Bookmarks")
                 .getBooleanValue(true);
@@ -235,6 +231,11 @@ public class NEIClientConfig {
                 .setComment("Show Recipe Marker")
                 .getBooleanValue(false);
         API.addOption(new OptionToggleButton("inventory.showRecipeMarker", true));
+
+        tag.getTag("inventory.showItemQuantityWidget")
+                .setComment("Show Item Quantity Widget")
+                .getBooleanValue(true);
+        API.addOption(new OptionToggleButton("inventory.showItemQuantityWidget", true));
 
         tag.getTag("inventory.jei_style_tabs")
                 .setComment("Enable/disable JEI Style Tabs")
@@ -311,22 +312,29 @@ public class NEIClientConfig {
     }
 
     private static void setDefaultKeyBindings() {
-        API.addKeyBind("gui.recipe", Keyboard.KEY_R);
-        API.addKeyBind("gui.usage", Keyboard.KEY_U);
+        API.addHashBind("gui.recipe", Keyboard.KEY_R);
+        API.addHashBind("gui.usage", Keyboard.KEY_U);
         API.addKeyBind("gui.back", Keyboard.KEY_BACK);
-        API.addKeyBind("gui.enchant", Keyboard.KEY_X);
-        API.addKeyBind("gui.potion", Keyboard.KEY_P);
+        API.addHashBind("gui.enchant", Keyboard.KEY_X);
+        API.addHashBind("gui.potion", Keyboard.KEY_P);
         API.addKeyBind("gui.prev", Keyboard.KEY_PRIOR);
         API.addKeyBind("gui.next", Keyboard.KEY_NEXT);
         API.addKeyBind("gui.prev_machine", Keyboard.KEY_UP);
         API.addKeyBind("gui.next_machine", Keyboard.KEY_DOWN);
         API.addKeyBind("gui.prev_recipe", Keyboard.KEY_LEFT);
         API.addKeyBind("gui.next_recipe", Keyboard.KEY_RIGHT);
-        API.addKeyBind("gui.hide", Keyboard.KEY_O);
-        API.addKeyBind("gui.search", Keyboard.KEY_F);
-        API.addKeyBind("gui.bookmark", Keyboard.KEY_A);
-        API.addKeyBind("gui.overlay", Keyboard.KEY_S);
-        API.addKeyBind("gui.hide_bookmarks", Keyboard.KEY_B);
+        API.addHashBind("gui.hide", Keyboard.KEY_O);
+        API.addHashBind("gui.search", Keyboard.KEY_F);
+        API.addHashBind("gui.bookmark", Keyboard.KEY_A);
+        API.addHashBind("gui.bookmark_recipe", Keyboard.KEY_A + NEIClientUtils.SHIFT_HASH);
+        API.addHashBind("gui.bookmark_count", Keyboard.KEY_A + NEIClientUtils.CTRL_HASH);
+        API.addHashBind(
+                "gui.bookmark_recipe_count", Keyboard.KEY_A + NEIClientUtils.SHIFT_HASH + NEIClientUtils.CTRL_HASH);
+        API.addHashBind("gui.overlay", Keyboard.KEY_S);
+        API.addHashBind("gui.overlay_use", Keyboard.KEY_S + NEIClientUtils.SHIFT_HASH);
+        API.addHashBind("gui.overlay_hide", Keyboard.KEY_S + NEIClientUtils.CTRL_HASH);
+        API.addHashBind("gui.hide_bookmarks", Keyboard.KEY_B);
+
         API.addKeyBind("world.chunkoverlay", Keyboard.KEY_F9);
         API.addKeyBind("world.moboverlay", Keyboard.KEY_F7);
         API.addKeyBind("world.highlight_tips", Keyboard.KEY_NUMPAD0);
@@ -396,6 +404,11 @@ public class NEIClientConfig {
 
     public static void setDefaultKeyBinding(String string, int key) {
         getSetting("keys." + string).getIntValue(key);
+    }
+
+    public static boolean isKeyHashDown(String string) {
+        final int hash = getKeyBinding(string);
+        return hash != Keyboard.CHAR_NONE && hash == NEIClientUtils.getKeyHash();
     }
 
     public static void bootNEI(World world) {
@@ -475,16 +488,16 @@ public class NEIClientConfig {
         return !getBooleanSetting("inventory.bookmarksEnabled");
     }
 
-    public static boolean saveCurrentRecipeInBookmarksEnabled() {
-        return getBooleanSetting("inventory.saveCurrentRecipeInBookmarksEnabled");
-    }
-
     public static boolean useNBTInBookmarks() {
         return getBooleanSetting("inventory.useNBTInBookmarks");
     }
 
     public static boolean showRecipeMarker() {
         return getBooleanSetting("inventory.showRecipeMarker");
+    }
+
+    public static boolean showItemQuantityWidget() {
+        return getBooleanSetting("inventory.showItemQuantityWidget");
     }
 
     public static boolean areJEIStyleTabsVisible() {

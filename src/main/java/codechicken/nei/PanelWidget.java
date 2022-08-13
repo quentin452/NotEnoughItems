@@ -206,10 +206,15 @@ public abstract class PanelWidget extends Widget {
                 return false;
             }
 
-            if (NEIClientConfig.canPerformAction("delete") && NEIClientConfig.canPerformAction("item"))
-                if (button == 1) NEIClientUtils.decreaseSlotStack(-999);
-                else NEIClientUtils.deleteHeldItem();
-            else NEIClientUtils.dropHeldItem();
+            if (NEIClientConfig.canPerformAction("delete") && NEIClientConfig.canPerformAction("item")) {
+                if (button == 1) {
+                    NEIClientUtils.decreaseSlotStack(-999);
+                } else {
+                    NEIClientUtils.deleteHeldItem();
+                }
+            } else {
+                NEIClientUtils.dropHeldItem();
+            }
 
             return true;
         }
@@ -243,6 +248,11 @@ public abstract class PanelWidget extends Widget {
             return ItemPanels.bookmarkPanel.handleDraggedClick(mouseX, mouseY, button);
         }
 
+        if (NEIClientUtils.getHeldItem() != null) {
+            final ItemStack draggedStack = NEIClientUtils.getHeldItem().copy();
+            return handleGUIContainerClick(draggedStack, mouseX, mouseY, button);
+        }
+
         return false;
     }
 
@@ -251,7 +261,12 @@ public abstract class PanelWidget extends Widget {
             return false;
         }
 
-        if (handleGUIContainerClick(mouseX, mouseY, button)) {
+        if (handleGUIContainerClick(draggedStack, mouseX, mouseY, button)) {
+
+            if (draggedStack.stackSize == 0) {
+                draggedStack = null;
+            }
+
             return true;
         }
 
@@ -266,7 +281,7 @@ public abstract class PanelWidget extends Widget {
         return true;
     }
 
-    protected boolean handleGUIContainerClick(int mouseX, int mouseY, int button) {
+    protected boolean handleGUIContainerClick(final ItemStack draggedStack, int mouseX, int mouseY, int button) {
         final GuiContainer gui = NEIClientUtils.getGuiContainer();
         boolean handled = false;
 
@@ -274,16 +289,15 @@ public abstract class PanelWidget extends Widget {
             GuiInfo.readLock.lock();
             for (INEIGuiHandler handler : GuiInfo.guiHandlers) {
                 if (handler.handleDragNDrop(gui, mouseX, mouseY, draggedStack, button)) {
+
+                    NEIClientConfig.logger.info(handler);
+
                     handled = true;
                     break;
                 }
             }
         } finally {
             GuiInfo.readLock.unlock();
-        }
-
-        if (draggedStack.stackSize == 0) {
-            draggedStack = null;
         }
 
         return handled;
@@ -325,12 +339,12 @@ public abstract class PanelWidget extends Widget {
     @Override
     public boolean handleKeyPress(int keyID, char keyChar) {
 
-        if (keyID == NEIClientConfig.getKeyBinding("gui.next")) {
+        if (NEIClientConfig.isKeyHashDown("gui.next")) {
             grid.shiftPage(1);
             return true;
         }
 
-        if (keyID == NEIClientConfig.getKeyBinding("gui.prev")) {
+        if (NEIClientConfig.isKeyHashDown("gui.prev")) {
             grid.shiftPage(-1);
             return true;
         }

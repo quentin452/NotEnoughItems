@@ -404,39 +404,39 @@ public class BookmarkPanel extends PanelWidget {
     }
 
     public void addOrRemoveItem(ItemStack stackA) {
-        addOrRemoveItem(stackA, "", null);
+        addOrRemoveItem(stackA, null, null, false, false);
     }
 
-    public void addOrRemoveItem(ItemStack stackover, String handlerName, List<PositionedStack> ingredients) {
+    public void addOrRemoveItem(
+            ItemStack stackover,
+            final String handlerName,
+            final List<PositionedStack> ingredients,
+            boolean saveIngredients,
+            boolean saveStackSize) {
         loadBookmarksIfNeeded();
 
         final Point mousePos = getMousePosition();
         final ItemPanelSlot slot = getSlotMouseOver(mousePos.x, mousePos.y);
-        final boolean addFullRecipe = NEIClientUtils.shiftKey();
         final BookmarkGrid BGrid = (BookmarkGrid) grid;
 
         if (slot != null && StackInfo.equalItemAndNBT(slot.item, stackover, true)) {
-            BGrid.removeRecipe(slot.slotIndex, addFullRecipe);
+            BGrid.removeRecipe(slot.slotIndex, saveIngredients);
         } else {
-            final boolean saveStackSize = NEIClientUtils.controlKey();
             final NBTTagCompound nbTagA = StackInfo.itemStackToNBT(stackover, saveStackSize);
             final ItemStack normalizedA = StackInfo.loadFromNBT(nbTagA);
             BookmarkRecipeId recipeId = null;
 
-            if (NEIClientConfig.saveCurrentRecipeInBookmarksEnabled()
-                    && handlerName != ""
-                    && ingredients != null
-                    && !ingredients.isEmpty()) {
+            if (handlerName != "" && ingredients != null && !ingredients.isEmpty()) {
                 recipeId = new BookmarkRecipeId(handlerName, ingredients);
             }
 
             final int idx = BGrid.indexOf(normalizedA, recipeId);
 
             if (idx != -1) {
-                BGrid.removeRecipe(idx, addFullRecipe);
+                BGrid.removeRecipe(idx, saveIngredients);
             } else {
 
-                if (addFullRecipe && handlerName != "" && ingredients != null && !ingredients.isEmpty()) {
+                if (saveIngredients && handlerName != "" && ingredients != null && !ingredients.isEmpty()) {
                     final Map<NBTTagCompound, Integer> unique = new HashMap<>();
                     final ArrayList<NBTTagCompound> sorted = new ArrayList<>();
 
@@ -448,18 +448,19 @@ public class BookmarkPanel extends PanelWidget {
                         if (unique.get(nbTag) == null) {
                             unique.put(nbTag, 1);
                             sorted.add(nbTag);
-                        } else if (saveStackSize) {
+                        } else {
                             unique.put(nbTag, unique.get(nbTag) + 1);
                         }
                     }
 
                     for (NBTTagCompound nbTag : sorted) {
-                        nbTag.setInteger("Count", nbTag.getInteger("Count") * unique.get(nbTag));
+                        final int count = nbTag.getInteger("Count") * unique.get(nbTag);
+                        nbTag.setInteger("Count", count);
                         BGrid.addItem(
                                 StackInfo.loadFromNBT(nbTag),
                                 new BookmarkStackMeta(
-                                        recipeId,
-                                        (saveStackSize ? 1 : -1) * nbTag.getInteger("Count"),
+                                        recipeId != null ? recipeId.copy() : null,
+                                        (saveStackSize ? 1 : -1) * count,
                                         true,
                                         nbTag.hasKey("gtFluidName")));
                     }
@@ -479,15 +480,14 @@ public class BookmarkPanel extends PanelWidget {
         saveBookmarks();
     }
 
+    public BookmarkRecipeId getBookmarkRecipeId(int slotIndex) {
+        return ((BookmarkGrid) grid).getRecipeId(slotIndex);
+    }
+
     public BookmarkRecipeId getBookmarkRecipeId(ItemStack stackA) {
-
-        BookmarkRecipeId mouseOverRecipeId = getBookmarkMouseOverRecipeId(stackA);
-        if (mouseOverRecipeId != null) return mouseOverRecipeId;
-
         BookmarkRecipeId recipeId = ((BookmarkGrid) grid).findRecipeId(stackA);
 
         if (recipeId == null) {
-
             for (int idx = 0; idx < namespaces.size() && recipeId == null; idx++) {
                 if (idx == activeNamespaceIndex) continue;
                 recipeId = namespaces.get(idx).findRecipeId(stackA);
@@ -495,23 +495,6 @@ public class BookmarkPanel extends PanelWidget {
         }
 
         return recipeId;
-    }
-
-    public BookmarkRecipeId getBookmarkMouseOverRecipeId(ItemStack stackA) {
-        final Point mousePos = getMousePosition();
-        final ItemPanelSlot slot = getSlotMouseOver(mousePos.x, mousePos.y);
-
-        if (slot != null) {
-            if (stackA == null || StackInfo.equalItemAndNBT(slot.item, stackA, true)) {
-                return ((BookmarkGrid) grid).getRecipeId(slot.slotIndex);
-            }
-        }
-
-        return null;
-    }
-
-    public BookmarkRecipeId getBookmarkMouseOverRecipeId() {
-        return getBookmarkMouseOverRecipeId(null);
     }
 
     protected String getNamespaceLabelText(boolean shortFormat) {
@@ -868,7 +851,7 @@ public class BookmarkPanel extends PanelWidget {
         int amount = stack.stackSize;
 
         if (meta.factor < 0 && !meta.fluidDisplay) {
-            amount = NEIClientConfig.getItemQuantity();
+            amount = NEIClientConfig.showItemQuantityWidget() ? NEIClientConfig.getItemQuantity() : 0;
 
             if (amount == 0) {
                 amount = stack.getMaxStackSize();

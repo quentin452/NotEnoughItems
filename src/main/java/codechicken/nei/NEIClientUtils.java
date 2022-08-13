@@ -15,13 +15,20 @@ import codechicken.nei.api.GuiInfo;
 import codechicken.nei.api.IInfiniteItemHandler;
 import codechicken.nei.api.ItemInfo;
 import com.google.common.collect.Iterables;
+import java.math.BigInteger;
+import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.MessageFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
@@ -38,6 +45,13 @@ import org.lwjgl.input.Keyboard;
 public class NEIClientUtils extends NEIServerUtils {
     public static LangProxy lang = new LangProxy("nei");
 
+    /** Formats a number with group separator and at most 2 fraction digits. */
+    private static final Map<Locale, DecimalFormat> decimalFormatters = new HashMap<>();
+
+    public static final int ALT_HASH = 1 << 27;
+    public static final int SHIFT_HASH = 1 << 26;
+    public static final int CTRL_HASH = 1 << 25;
+
     public static Minecraft mc() {
         return Minecraft.getMinecraft();
     }
@@ -48,6 +62,32 @@ public class NEIClientUtils extends NEIServerUtils {
 
     public static void printChatMessage(IChatComponent msg) {
         if (mc().ingameGUI != null) mc().ingameGUI.getChatGUI().printChatMessage(msg);
+    }
+
+    private static DecimalFormat getDecimalFormat() {
+        return decimalFormatters.computeIfAbsent(Locale.getDefault(Locale.Category.FORMAT), locale -> {
+            DecimalFormat numberFormat = new DecimalFormat(); // uses the necessary locale inside anyway
+            numberFormat.setGroupingUsed(true);
+            numberFormat.setMaximumFractionDigits(2);
+            numberFormat.setRoundingMode(RoundingMode.HALF_UP);
+            DecimalFormatSymbols decimalFormatSymbols = numberFormat.getDecimalFormatSymbols();
+            decimalFormatSymbols.setGroupingSeparator(','); // Use sensible separator for best clarity.
+            numberFormat.setDecimalFormatSymbols(decimalFormatSymbols);
+
+            return numberFormat;
+        });
+    }
+
+    public static String formatNumbers(BigInteger aNumber) {
+        return getDecimalFormat().format(aNumber);
+    }
+
+    public static String formatNumbers(long aNumber) {
+        return getDecimalFormat().format(aNumber);
+    }
+
+    public static String formatNumbers(double aNumber) {
+        return getDecimalFormat().format(aNumber);
     }
 
     public static void deleteHeldItem() {
@@ -340,6 +380,46 @@ public class NEIClientUtils extends NEIServerUtils {
 
     public static boolean altKey() {
         return Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU);
+    }
+
+    public static int getMetaHash() {
+        if (Keyboard.getEventKeyState()) {
+            int hash = 0;
+
+            if (altKey()) {
+                hash = hash | ALT_HASH;
+            }
+
+            if (shiftKey()) {
+                hash = hash | SHIFT_HASH;
+            }
+
+            if (controlKey()) {
+                hash = hash | CTRL_HASH;
+            }
+
+            return hash;
+        }
+
+        return 0;
+    }
+
+    public static int getKeyHash() {
+
+        if (Keyboard.getEventKeyState()) {
+            final int keycode = Keyboard.getEventKey();
+
+            if (keycode != Keyboard.KEY_LSHIFT
+                    && keycode != Keyboard.KEY_RSHIFT
+                    && keycode != Keyboard.KEY_LCONTROL
+                    && keycode != Keyboard.KEY_RCONTROL
+                    && keycode != Keyboard.KEY_LMENU
+                    && keycode != Keyboard.KEY_RMENU) {
+                return getMetaHash() + keycode;
+            }
+        }
+
+        return Keyboard.CHAR_NONE;
     }
 
     public static void playClickSound() {

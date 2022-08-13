@@ -9,9 +9,9 @@ import codechicken.lib.config.ConfigTag;
 import codechicken.nei.KeyManager.IKeyStateTracker;
 import codechicken.nei.api.ItemInfo;
 import codechicken.nei.guihook.GuiContainerManager;
+import codechicken.nei.recipe.StackInfo;
 import java.awt.Dimension;
 import java.awt.Point;
-import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderHelper;
@@ -39,17 +39,12 @@ public class HUDRenderer implements IKeyStateTracker {
                 && mc.objectMouseOver != null
                 && mc.objectMouseOver.typeOfHit == MovingObjectType.BLOCK) {
             World world = mc.theWorld;
-            ArrayList<ItemStack> items = ItemInfo.getIdentifierItems(world, mc.thePlayer, mc.objectMouseOver);
-            if (items.isEmpty()) return;
+            ItemStack[] items = ItemInfo.getIdentifierItems(world, mc.thePlayer, mc.objectMouseOver)
+                    .toArray(new ItemStack[0]);
 
-            int minDamage = Integer.MAX_VALUE;
-            ItemStack stack = null;
-            for (ItemStack astack : items) {
-                if (astack.getItem() != null && astack.getItemDamage() < minDamage) {
-                    stack = astack;
-                    minDamage = stack.getItemDamage();
-                }
-            }
+            if (items.length == 0) return;
+
+            ItemStack stack = StackInfo.getItemStackWithMinimumDamage(items);
 
             renderOverlay(stack, ItemInfo.getText(stack, world, mc.thePlayer, mc.objectMouseOver), getPositioning());
         }

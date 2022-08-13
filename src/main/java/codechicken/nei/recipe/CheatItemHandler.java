@@ -15,7 +15,7 @@ public class CheatItemHandler extends INEIGuiAdapter {
     public boolean handleDragNDrop(GuiContainer gui, int mouseX, int mouseY, ItemStack draggedStack, int button) {
         final Slot overSlot = gui.getSlotAtPosition(mouseX, mouseY);
 
-        if (overSlot != null && overSlot.isItemValid(draggedStack)) {
+        if (overSlot != null && overSlot.isItemValid(draggedStack) && NEIClientUtils.getHeldItem() == null) {
 
             if (NEIClientConfig.canCheatItem(draggedStack)) {
                 int contents = overSlot.getHasStack() ? overSlot.getStack().stackSize : 0;

@@ -45,6 +45,7 @@ public class SearchField extends TextField implements ItemFilterProvider {
     }
 
     public static List<ISearchProvider> searchProviders = new LinkedList<>();
+    private boolean isVisible = true;
 
     long lastclicktime;
 
@@ -56,6 +57,14 @@ public class SearchField extends TextField implements ItemFilterProvider {
 
     public static boolean searchInventories() {
         return world.nbt.getBoolean("searchinventories");
+    }
+
+    public boolean isVisible() {
+        return isVisible;
+    }
+
+    public void setVisible(boolean visible) {
+        isVisible = visible;
     }
 
     @Override
@@ -103,7 +112,10 @@ public class SearchField extends TextField implements ItemFilterProvider {
 
     @Override
     public void lastKeyTyped(int keyID, char keyChar) {
-        if (keyID == NEIClientConfig.getKeyBinding("gui.search")) setFocus(true);
+
+        if (isVisible() && NEIClientConfig.isKeyHashDown("gui.search")) {
+            setFocus(true);
+        }
     }
 
     @Override

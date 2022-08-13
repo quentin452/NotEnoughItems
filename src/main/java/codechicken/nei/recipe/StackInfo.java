@@ -190,4 +190,20 @@ public class StackInfo {
             guidfilters.put(parts[0], rules);
         }
     }
+
+    public static ItemStack getItemStackWithMinimumDamage(ItemStack[] stacks) {
+        int damage = Short.MAX_VALUE;
+        ItemStack result = stacks[0];
+
+        if (stacks.length > 1) {
+            for (ItemStack stack : stacks) {
+                if (stack.getItem() != null && stack.getItemDamage() < damage) {
+                    damage = stack.getItemDamage();
+                    result = stack;
+                }
+            }
+        }
+
+        return result.copy();
+    }
 }

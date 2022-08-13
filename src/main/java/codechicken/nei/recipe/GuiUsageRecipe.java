@@ -3,6 +3,7 @@ package codechicken.nei.recipe;
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.NEIClientUtils;
 import java.util.ArrayList;
+import net.minecraft.client.Minecraft;
 
 public class GuiUsageRecipe extends GuiRecipe<IUsageHandler> {
     public static ArrayList<IUsageHandler> usagehandlers = new ArrayList<>();
@@ -14,14 +15,13 @@ public class GuiUsageRecipe extends GuiRecipe<IUsageHandler> {
         ArrayList<IUsageHandler> handlers = recipeQuery.runWithProfiling("recipe.concurrent.usage");
         if (handlers.isEmpty()) return false;
 
-        BookmarkRecipeId recipeId = getCurrentRecipe();
+        Minecraft mc = NEIClientUtils.mc();
+        BookmarkRecipeId recipeId = getCurrentRecipe(mc.currentScreen);
         GuiUsageRecipe gui = new GuiUsageRecipe(handlers, recipeId);
 
-        NEIClientUtils.mc().displayGuiScreen(gui);
+        mc.displayGuiScreen(gui);
 
-        if (!NEIClientUtils.shiftKey()) {
-            gui.openTargetRecipe(gui.recipeId);
-        }
+        gui.openTargetRecipe(gui.recipeId);
 
         return true;
     }

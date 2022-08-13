@@ -6,6 +6,8 @@ import static codechicken.lib.gui.GuiDraw.getMousePosition;
 import static codechicken.lib.gui.GuiDraw.renderEngine;
 
 import codechicken.lib.gui.GuiDraw;
+import codechicken.nei.NEIClientUtils;
+import codechicken.nei.recipe.StackInfo;
 import java.awt.Point;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -26,6 +28,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraftforge.fluids.FluidStack;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
@@ -143,9 +146,48 @@ public class GuiContainerManager {
         }
 
         namelist.set(0, stack.getRarity().rarityColor.toString() + namelist.get(0));
-        for (int i = 1; i < namelist.size(); i++) namelist.set(i, "\u00a77" + namelist.get(i));
+
+        for (int i = 1; i < namelist.size(); i++) {
+            namelist.set(i, EnumChatFormatting.GRAY + namelist.get(i) + EnumChatFormatting.RESET);
+        }
 
         return namelist;
+    }
+
+    protected static String itemCountDetails(ItemStack stack) {
+        final FluidStack fluid = StackInfo.getFluid(stack);
+        int maxStackSize = stack.getMaxStackSize();
+        int stackSize = stack.stackSize;
+        String FULL_PATTERN = "Count: %s = %s * %s + %s";
+        String SHORT_PATTERN = "Count: %s = %s * %s";
+
+        if (fluid != null) {
+            maxStackSize = 144;
+            stackSize = fluid.amount * Math.max(1, stack.stackSize);
+            FULL_PATTERN = "Amount: %s L = %s * %s L + %s L";
+            SHORT_PATTERN = "Amount: %s L = %s * %s L";
+        }
+
+        if (maxStackSize > 1 && stackSize > maxStackSize) {
+            final int remainder = stackSize % maxStackSize;
+
+            if (remainder > 0) {
+                return String.format(
+                        FULL_PATTERN,
+                        NEIClientUtils.formatNumbers(stackSize),
+                        NEIClientUtils.formatNumbers(stackSize / maxStackSize),
+                        NEIClientUtils.formatNumbers(maxStackSize),
+                        NEIClientUtils.formatNumbers(remainder));
+            } else {
+                return String.format(
+                        SHORT_PATTERN,
+                        NEIClientUtils.formatNumbers(stackSize),
+                        NEIClientUtils.formatNumbers(stackSize / maxStackSize),
+                        NEIClientUtils.formatNumbers(maxStackSize));
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -203,7 +245,7 @@ public class GuiContainerManager {
             int i, int j, ItemStack itemstack, FontRenderer fontRenderer, boolean smallAmount, String stackSize) {
         enable3DRender();
         // for lighting correction
-        GL11.glEnable(GL12.GL_RESCALE_NORMAL);
+        boolean glRescale = GL11.glGetBoolean(GL12.GL_RESCALE_NORMAL);
 
         float zLevel = drawItems.zLevel += 100F;
         try {
@@ -244,7 +286,12 @@ public class GuiContainerManager {
             drawItems.renderItemIntoGUI(fontRenderer, renderEngine, new ItemStack(Blocks.fire), i, j);
         }
 
-        GL11.glDisable(GL12.GL_RESCALE_NORMAL);
+        if (glRescale) {
+            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
+        } else {
+            GL11.glDisable(GL12.GL_RESCALE_NORMAL);
+        }
+
         enable2DRender();
         drawItems.zLevel = zLevel - 100;
     }
@@ -439,7 +486,15 @@ public class GuiContainerManager {
         if (tooltip.isEmpty() && shouldShowTooltip(window)) { // mouseover tip, not holding an item
             ItemStack stack = getStackMouseOver(window);
             font = getFontRenderer(stack);
-            if (stack != null) tooltip = itemDisplayNameMultiline(stack, window, true);
+            if (stack != null) {
+                tooltip = itemDisplayNameMultiline(stack, window, true);
+
+                final String itemCount = itemCountDetails(stack);
+
+                if (itemCount != null) {
+                    tooltip.add(String.format(EnumChatFormatting.GRAY + itemCount + EnumChatFormatting.RESET));
+                }
+            }
 
             synchronized (instanceTooltipHandlers) {
                 for (IContainerTooltipHandler handler : instanceTooltipHandlers)
@@ -520,10 +575,25 @@ public class GuiContainerManager {
      * Delegate for changing item rendering for certain slots. Eg. Shrinking text for large itemstacks
      */
     public void drawSlotItem(Slot slot, ItemStack stack, int x, int y, String quantity) {
-        if (window instanceof IGuiSlotDraw) ((IGuiSlotDraw) window).drawSlotItem(slot, stack, x, y, quantity);
-        else {
-            drawItems.renderItemAndEffectIntoGUI(fontRenderer, window.mc.getTextureManager(), stack, x, y);
-            drawItems.renderItemOverlayIntoGUI(fontRenderer, window.mc.getTextureManager(), stack, x, y, quantity);
+        // for lighting correction
+        boolean glRescale = GL11.glGetBoolean(GL12.GL_RESCALE_NORMAL);
+
+        if (window instanceof IGuiSlotDraw) {
+            ((IGuiSlotDraw) window).drawSlotItem(slot, stack, x, y, quantity);
+        } else {
+
+            if (quantity == null) {
+                quantity = stack != null && stack.stackSize > 1 ? String.valueOf(stack.stackSize) : "";
+            }
+
+            drawItems.renderItemAndEffectIntoGUI(fontRenderer, renderEngine, stack, x, y);
+            drawItems.renderItemOverlayIntoGUI(fontRenderer, renderEngine, stack, x, y, quantity);
+        }
+
+        if (glRescale) {
+            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
+        } else {
+            GL11.glDisable(GL12.GL_RESCALE_NORMAL);
         }
     }
 

@@ -171,6 +171,16 @@ public class API {
         addOption(new OptionKeyBind(ident));
     }
 
+    /**
+     * Add a custom KeyBinding to be configured in the Controls menu.
+     * @param ident      An identifier for your key, eg "shoot"
+     * @param defaultKey The default value, commonly obtained from {@link Keyboard}
+     */
+    public static void addHashBind(String ident, int defaultKey) {
+        NEIClientConfig.setDefaultKeyBinding(ident, defaultKey);
+        addOption(new OptionKeyBind(ident, true));
+    }
+
     public static void addOption(Option option) {
         NEIClientConfig.getOptionList().addOption(option);
     }

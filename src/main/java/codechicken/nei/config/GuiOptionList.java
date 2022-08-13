@@ -20,6 +20,7 @@ import java.util.LinkedList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
+import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
 public class GuiOptionList extends GuiScreenWidget {
@@ -119,12 +120,16 @@ public class GuiOptionList extends GuiScreenWidget {
                     o.copyGlobals();
                     Option.playClickSound();
                 }
-            } else if (slotBounds(slot).contains(mx, my)) options.get(slot).mouseClicked(mx - 24, my - 2, button);
+            } else if (slotBounds(slot).contains(mx, my)) {
+                options.get(slot).mouseClicked(mx - 24, my - 2, button);
+            }
         }
 
         @Override
         public void mouseClicked(int mx, int my, int button) {
-            for (Option o : options) o.onMouseClicked(mx, my, button);
+            for (Option o : options) {
+                o.onMouseClicked(mx, my, button);
+            }
 
             super.mouseClicked(mx, my, button);
         }
@@ -247,8 +252,7 @@ public class GuiOptionList extends GuiScreenWidget {
 
     @Override
     public void keyTyped(char c, int keycode) {
-        if (keycode == 1) // esc
-        {
+        if (keycode == Keyboard.KEY_ESCAPE) {
             GuiScreen p = parent;
             while (p instanceof GuiOptionList) p = ((GuiOptionList) p).parent;
 

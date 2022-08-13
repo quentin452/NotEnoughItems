@@ -1,9 +1,12 @@
 package codechicken.nei;
 
+import static codechicken.nei.NEIClientUtils.translate;
+
 public class ItemQuantityField extends TextField {
     public ItemQuantityField(String ident) {
         super(ident);
         centered = true;
+        field.setDisabledTextColour(0xFF303030);
     }
 
     public int intValue() {
@@ -33,5 +36,19 @@ public class ItemQuantityField extends TextField {
     @Override
     public void onTextChange(String oldText) {
         NEIClientUtils.setItemQuantity(intValue());
+    }
+
+    @Override
+    public void draw(int mousex, int mousey) {
+
+        if (!focused() && intValue() == 0) {
+            field.setText(translate("itempanel.quantity.default"));
+            field.setEnabled(false);
+            super.draw(mousex, mousey);
+            field.setEnabled(true);
+            field.setText("0");
+        } else {
+            super.draw(mousex, mousey);
+        }
     }
 }

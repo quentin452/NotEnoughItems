@@ -28,7 +28,6 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
@@ -241,12 +240,12 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer
                     HandlerInfo localHandlerInfo = GuiRecipeTab.getHandlerInfo(localHandler);
 
                     if (localHandlerInfo.getHandlerName().equals(recipeId.handlerName)) {
-                        recipeId.recipetype = j;
 
                         if (!recipeId.ingredients.isEmpty()) {
                             for (int i = 0; i < localHandler.numRecipes(); i++) {
 
                                 if (recipeId.equalsIngredients(localHandler.getIngredientStacks(i))) {
+                                    recipeId.recipetype = j;
                                     recipeId.position = i;
                                     break;
                                 }
@@ -319,12 +318,19 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer
             for (int recipe : getRecipeIndices()) if (handler.keyTyped(this, c, i, recipe)) return;
         }
 
-        if (i == mc.gameSettings.keyBindInventory.getKeyCode()) mc.displayGuiScreen(firstGuiGeneral);
-        else if (i == NEIClientConfig.getKeyBinding("gui.back")) mc.displayGuiScreen(prevGui);
-        else if (i == NEIClientConfig.getKeyBinding("gui.prev_machine")) prevType();
-        else if (i == NEIClientConfig.getKeyBinding("gui.next_machine")) nextType();
-        else if (i == NEIClientConfig.getKeyBinding("gui.prev_recipe")) prevPage();
-        else if (i == NEIClientConfig.getKeyBinding("gui.next_recipe")) nextPage();
+        if (i == mc.gameSettings.keyBindInventory.getKeyCode()) {
+            mc.displayGuiScreen(firstGuiGeneral);
+        } else if (NEIClientConfig.isKeyHashDown("gui.back")) {
+            mc.displayGuiScreen(prevGui);
+        } else if (NEIClientConfig.isKeyHashDown("gui.prev_machine")) {
+            prevType();
+        } else if (NEIClientConfig.isKeyHashDown("gui.next_machine")) {
+            nextType();
+        } else if (NEIClientConfig.isKeyHashDown("gui.prev_recipe")) {
+            prevPage();
+        } else if (NEIClientConfig.isKeyHashDown("gui.next_recipe")) {
+            nextPage();
+        }
     }
 
     @Override
@@ -373,7 +379,8 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer
         if (overlayButtons != null
                 && guibutton.id >= OVERLAY_BUTTON_ID_START
                 && guibutton.id < OVERLAY_BUTTON_ID_START + overlayButtons.length) {
-            overlayRecipe(page * getRecipesPerPage() + guibutton.id - OVERLAY_BUTTON_ID_START);
+            overlayRecipe(
+                    page * getRecipesPerPage() + guibutton.id - OVERLAY_BUTTON_ID_START, NEIClientUtils.shiftKey());
         }
     }
 
@@ -426,14 +433,13 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer
         setRecipePage(--recipetype);
     }
 
-    protected void overlayRecipe(int recipe) {
+    protected void overlayRecipe(int recipe, final boolean shift) {
         if (handler == null || !handler.hasOverlay(firstGui, firstGui.inventorySlots, recipe)) {
             mc.displayGuiScreen(firstGui);
             return;
         }
         final IRecipeOverlayRenderer renderer = handler.getOverlayRenderer(firstGui, recipe);
         final IOverlayHandler overlayHandler = handler.getOverlayHandler(firstGui, recipe);
-        final boolean shift = NEIClientUtils.shiftKey();
 
         mc.displayGuiScreen(firstGui);
         if (renderer == null || shift) {
@@ -715,14 +721,15 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer
         return area.intersects(x, y, w, h);
     }
 
-    static BookmarkRecipeId getCurrentRecipe() {
-        Minecraft mc = NEIClientUtils.mc();
-        if (mc.currentScreen instanceof GuiRecipe) {
-            GuiRecipe<?> gui = (GuiRecipe<?>) mc.currentScreen;
+    protected static BookmarkRecipeId getCurrentRecipe(GuiScreen gui) {
+
+        if (gui instanceof GuiRecipe) {
+            GuiRecipe<?> gRecipe = (GuiRecipe<?>) gui;
             return new BookmarkRecipeId(
-                    gui.handlerInfo.getHandlerName(),
-                    gui.getHandler().getIngredientStacks(gui.page * gui.getRecipesPerPage()));
+                    gRecipe.handlerInfo.getHandlerName(),
+                    gRecipe.getHandler().getIngredientStacks(gRecipe.page * gRecipe.getRecipesPerPage()));
         }
+
         return null;
     }
 }

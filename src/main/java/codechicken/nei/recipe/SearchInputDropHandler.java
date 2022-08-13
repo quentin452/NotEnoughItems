@@ -16,7 +16,7 @@ public class SearchInputDropHandler extends INEIGuiAdapter {
     @Override
     public boolean handleDragNDrop(GuiContainer gui, int mouseX, int mouseY, ItemStack draggedStack, int button) {
 
-        if (searchField.contains(mouseX, mouseY)) {
+        if (searchField.isVisible() && searchField.contains(mouseX, mouseY)) {
             final FluidStack fluidStack = StackInfo.getFluid(draggedStack);
 
             if (fluidStack != null) {

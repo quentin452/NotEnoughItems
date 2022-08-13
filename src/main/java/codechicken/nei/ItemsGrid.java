@@ -176,6 +176,18 @@ public class ItemsGrid {
         }
     }
 
+    public Rectangle4i getItemRect(int idx) {
+        final List<Integer> mask = getMask();
+
+        for (int i = 0; i < mask.size(); i++) {
+            if (mask.get(i) != null && idx == mask.get(i)) {
+                return getSlotRect(i);
+            }
+        }
+
+        return null;
+    }
+
     public Rectangle4i getSlotRect(int i) {
         return getSlotRect(i / columns, i % columns);
     }
@@ -222,7 +234,7 @@ public class ItemsGrid {
         GL11.glEnable(GL11.GL_BLEND);
         OpenGlHelper.glBlendFunc(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-        framebuffer.bindFramebufferTexture();
+        getFrameBuffer().bindFramebufferTexture();
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         ScaledResolution res = new ScaledResolution(minecraft, minecraft.displayWidth, minecraft.displayHeight);
         Tessellator tessellator = Tessellator.instance;
@@ -235,39 +247,17 @@ public class ItemsGrid {
         OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
     }
 
-    public void draw(int mousex, int mousey) {
-        if (getPerPage() == 0) {
-            return;
+    private Framebuffer getFrameBuffer() {
+
+        if (framebuffer == null) {
+            framebuffer = new Framebuffer(1, 1, true);
+            framebuffer.setFramebufferColor(0.0F, 0.0F, 0.0F, 0.0F);
         }
 
-        boolean shouldCache = NEIClientConfig.shouldCacheItemRendering() && !PresetsWidget.inEditMode();
-        if (shouldCache) {
-            Minecraft minecraft = Minecraft.getMinecraft();
-            if (framebuffer == null) {
-                framebuffer = new Framebuffer(minecraft.displayWidth, minecraft.displayHeight, true);
-                framebuffer.framebufferColor[0] = 0.0F;
-                framebuffer.framebufferColor[1] = 0.0F;
-                framebuffer.framebufferColor[2] = 0.0F;
-            }
-            drawSlotOutlines(mousex, mousey);
-            if (refreshBuffer) {
-                framebuffer.createBindFramebuffer(minecraft.displayWidth, minecraft.displayHeight);
-                framebuffer.framebufferClear();
-                framebuffer.bindFramebuffer(false);
-                /* Set up some rendering state needed for items to work correctly */
-                GL11.glDisable(GL11.GL_BLEND);
-                GL11.glDepthMask(true);
-                OpenGlHelper.glBlendFunc(
-                        GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
-                GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
-            } else {
-                blitExistingBuffer();
-                return;
-            }
-        } else {
-            drawSlotOutlines(mousex, mousey);
-        }
+        return framebuffer;
+    }
 
+    private void drawItems() {
         GuiContainerManager.enableMatrixStackLogging();
 
         final List<Integer> mask = getMask();
@@ -278,11 +268,40 @@ public class ItemsGrid {
         }
 
         GuiContainerManager.disableMatrixStackLogging();
+    }
 
-        if (refreshBuffer && shouldCache) {
-            refreshBuffer = false;
-            Minecraft.getMinecraft().getFramebuffer().bindFramebuffer(false);
+    public void draw(int mousex, int mousey) {
+        if (getPerPage() == 0) {
+            return;
+        }
+
+        if (NEIClientConfig.shouldCacheItemRendering()) {
+
+            if (refreshBuffer) {
+                Minecraft minecraft = Minecraft.getMinecraft();
+                Framebuffer framebuffer = getFrameBuffer();
+                framebuffer.createBindFramebuffer(minecraft.displayWidth, minecraft.displayHeight);
+                framebuffer.framebufferClear();
+                framebuffer.bindFramebuffer(false);
+
+                /* Set up some rendering state needed for items to work correctly */
+                GL11.glDisable(GL11.GL_BLEND);
+                GL11.glDepthMask(true);
+                OpenGlHelper.glBlendFunc(
+                        GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
+
+                drawItems();
+
+                Minecraft.getMinecraft().getFramebuffer().bindFramebuffer(false);
+                refreshBuffer = false;
+            }
+
+            drawSlotOutlines(mousex, mousey);
             blitExistingBuffer();
+        } else {
+            drawSlotOutlines(mousex, mousey);
+            drawItems();
         }
     }
 
@@ -307,9 +326,8 @@ public class ItemsGrid {
 
         if (mask.size() > slt && mask.get(slt) != null) {
             final int idx = mask.get(slt);
-            final ItemStack stack = getItem(idx).copy();
 
-            return new ItemPanelSlot(idx, stack);
+            return new ItemPanelSlot(idx, getItem(idx));
         }
 
         return null;
