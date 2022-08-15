@@ -6,8 +6,12 @@ import static codechicken.lib.gui.GuiDraw.drawStringC;
 import static codechicken.lib.gui.GuiDraw.getStringWidth;
 
 import codechicken.nei.LayoutManager;
+import codechicken.nei.NEIClientUtils;
+
 import java.awt.Rectangle;
 import java.util.List;
+
+import net.minecraft.client.Minecraft;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
@@ -69,14 +73,35 @@ public abstract class OptionButton extends Option {
     }
 
     public String getTooltip() {
-        if (tooltip == null) return null;
-        String s = translateN(tooltip);
-        if (s.equals(namespaced(tooltip))) return null;
-        return s;
+        String tip = null;
+
+        if (tooltip != null) {
+            String s = translateN(tooltip);
+
+            if (!s.equals(namespaced(tooltip))) {
+                tip = s;
+            }
+        }
+        
+        if (tip == null && getPrefix() != null) {
+            final int width = getStringWidth(getPrefix());
+            final Rectangle b = buttonSize();
+
+            if (width >= b.x) {
+                tip = translateN(name);
+            }
+
+        }
+        
+        return tip;
     }
 
     public void drawPrefix() {
-        if (getPrefix() != null) drawString(getPrefix(), 10, 6, -1);
+        final String prefix = getPrefix();
+        if (prefix != null) {
+            final Rectangle b = buttonSize();
+            drawString(NEIClientUtils.cropText(Minecraft.getMinecraft().fontRenderer, prefix, b.x - 10), 10, 6, -1);
+        }
     }
 
     public void drawButton(int mx, int my) {

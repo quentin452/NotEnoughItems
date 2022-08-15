@@ -312,7 +312,7 @@ public class PresetsWidget extends Widget {
             final int directionState = direction.contains(x + mx, y + my) ? 1 : 2;
             final int deleteState = delete.contains(x + mx, y + my) ? 1 : 2;
 
-            final String displayName = cropText(tag.displayName, option.w - 6);
+            final String displayName = NEIClientUtils.cropText(fontRenderer, tag.displayName, option.w - 6);
             final String dirName =
                     tag.whitelist ? translate("presets.whitelist.label") : translate("presets.blacklist.label");
 
@@ -456,7 +456,7 @@ public class PresetsWidget extends Widget {
 
         @Override
         public void draw(int mousex, int mousey) {
-            final String text = cropText(this.text, w);
+            final String text = NEIClientUtils.cropText(fontRenderer, this.text, w);
 
             if (text.equals(this.text)) {
                 GuiDraw.drawString(text, x + w - fontRenderer.getStringWidth(text), y + (h - 8) / 2, colour);
@@ -534,24 +534,6 @@ public class PresetsWidget extends Widget {
             }
         }
     };
-
-    protected static String cropText(String text, int containerWidth) {
-
-        int textWidth = fontRenderer.getStringWidth(text);
-
-        if (textWidth > containerWidth) {
-            textWidth += fontRenderer.getStringWidth("...");
-
-            while (textWidth > containerWidth) {
-                textWidth -= fontRenderer.getCharWidth(text.charAt(text.length() - 1));
-                text = text.substring(0, text.length() - 1);
-            }
-
-            return text + "...";
-        }
-
-        return text;
-    }
 
     protected static void setEditedTag(final PresetTag tag) {
         edit = tag;

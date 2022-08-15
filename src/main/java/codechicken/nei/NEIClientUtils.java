@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.PositionedSoundRecord;
+import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Container;
@@ -357,6 +358,24 @@ public class NEIClientUtils extends NEIServerUtils {
         for (int[] range : ranges) for (int integer = range[0]; integer <= range[1]; integer++) damages.add(integer);
 
         return concatIntegersToRanges(damages);
+    }
+
+    public static String cropText(FontRenderer fontRenderer, String text, int containerWidth) {
+
+        int textWidth = fontRenderer.getStringWidth(text);
+
+        if (textWidth > containerWidth) {
+            textWidth += fontRenderer.getStringWidth("...");
+
+            while (textWidth > containerWidth) {
+                textWidth -= fontRenderer.getCharWidth(text.charAt(text.length() - 1));
+                text = text.substring(0, text.length() - 1);
+            }
+
+            return text + "...";
+        }
+
+        return text;
     }
 
     public static boolean safeKeyDown(int keyCode) {
