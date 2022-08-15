@@ -7,10 +7,8 @@ import static codechicken.lib.gui.GuiDraw.getStringWidth;
 
 import codechicken.nei.LayoutManager;
 import codechicken.nei.NEIClientUtils;
-
 import java.awt.Rectangle;
 import java.util.List;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
@@ -82,7 +80,7 @@ public abstract class OptionButton extends Option {
                 tip = s;
             }
         }
-        
+
         if (tip == null && getPrefix() != null) {
             final int width = getStringWidth(getPrefix());
             final Rectangle b = buttonSize();
@@ -90,9 +88,8 @@ public abstract class OptionButton extends Option {
             if (width >= b.x) {
                 tip = translateN(name);
             }
-
         }
-        
+
         return tip;
     }
 
