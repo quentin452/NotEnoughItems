@@ -489,10 +489,12 @@ public class GuiContainerManager {
             if (stack != null) {
                 tooltip = itemDisplayNameMultiline(stack, window, true);
 
-                final String itemCount = itemCountDetails(stack);
+                if (stack.stackSize != Integer.MAX_VALUE && NEIClientUtils.shiftKey()) {
+                    final String itemCount = itemCountDetails(stack);
 
-                if (itemCount != null) {
-                    tooltip.add(String.format(EnumChatFormatting.GRAY + itemCount + EnumChatFormatting.RESET));
+                    if (itemCount != null) {
+                        tooltip.add(String.format(EnumChatFormatting.GRAY + itemCount + EnumChatFormatting.RESET));
+                    }
                 }
             }
 
