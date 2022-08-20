@@ -312,7 +312,8 @@ public class PresetsWidget extends Widget {
             final int directionState = direction.contains(x + mx, y + my) ? 1 : 2;
             final int deleteState = delete.contains(x + mx, y + my) ? 1 : 2;
 
-            final String displayName = NEIClientUtils.cropText(fontRenderer, tag.displayName, option.w - 6);
+            final String displayName =
+                    NEIClientUtils.cropText(PresetsWidget.fontRenderer, tag.displayName, option.w - 6);
             final String dirName =
                     tag.whitelist ? translate("presets.whitelist.label") : translate("presets.blacklist.label");
 
