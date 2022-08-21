@@ -3,6 +3,7 @@ package codechicken.nei.recipe;
 import codechicken.nei.ItemPanels;
 import codechicken.nei.LayoutManager;
 import codechicken.nei.NEIClientConfig;
+import codechicken.nei.NEIClientUtils;
 import codechicken.nei.PositionedStack;
 import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.guihook.IContainerInputHandler;
@@ -12,14 +13,11 @@ import net.minecraft.item.ItemStack;
 
 public class RecipeItemInputHandler implements IContainerInputHandler {
 
-    @Override
-    public boolean lastKeyTyped(GuiContainer gui, char keyChar, int keyCode) {
+    public static boolean lastKeyTyped(ItemStack stackover) {
 
         if (NEIClientConfig.isKeyHashDown("gui.overlay_hide")) {
             return hideOverlayRecipe();
         }
-
-        ItemStack stackover = GuiContainerManager.getStackMouseOver(gui);
 
         if (stackover == null) {
             return false;
@@ -28,11 +26,11 @@ public class RecipeItemInputHandler implements IContainerInputHandler {
         stackover = stackover.copy();
 
         if (NEIClientConfig.isKeyHashDown("gui.overlay")) {
-            return openOverlayRecipe(gui, stackover, false);
+            return openOverlayRecipe(stackover, false);
         }
 
         if (NEIClientConfig.isKeyHashDown("gui.overlay_use")) {
-            return openOverlayRecipe(gui, stackover, true);
+            return openOverlayRecipe(stackover, true);
         }
 
         if (NEIClientConfig.isKeyHashDown("gui.recipe")) {
@@ -44,44 +42,40 @@ public class RecipeItemInputHandler implements IContainerInputHandler {
         }
 
         if (NEIClientConfig.isKeyHashDown("gui.bookmark")) {
-            return saveRecipeInBookmark(gui, stackover, false, false);
+            return saveRecipeInBookmark(stackover, false, false);
         }
 
         if (NEIClientConfig.isKeyHashDown("gui.bookmark_recipe")) {
-            return saveRecipeInBookmark(gui, stackover, true, false);
+            return saveRecipeInBookmark(stackover, true, false);
         }
 
         if (NEIClientConfig.isKeyHashDown("gui.bookmark_count")) {
-            return saveRecipeInBookmark(gui, stackover, false, true);
+            return saveRecipeInBookmark(stackover, false, true);
         }
 
         if (NEIClientConfig.isKeyHashDown("gui.bookmark_recipe_count")) {
-            return saveRecipeInBookmark(gui, stackover, true, true);
+            return saveRecipeInBookmark(stackover, true, true);
         }
 
         return false;
     }
 
-    @Override
-    public boolean mouseClicked(GuiContainer gui, int mousex, int mousey, int button) {
-        if (!(gui instanceof GuiRecipe)
-                || ItemPanels.itemPanel.contains(mousex, mousey)
-                || ItemPanels.bookmarkPanel.contains(mousex, mousey)) return false;
-
-        ItemStack stackover = GuiContainerManager.getStackMouseOver(gui);
+    public static boolean mouseClicked(ItemStack stackover, int button) {
 
         if (stackover != null) {
+            stackover = stackover.copy();
+
             if (button == 0) {
-                return GuiCraftingRecipe.openRecipeGui("item", stackover.copy());
+                return GuiCraftingRecipe.openRecipeGui("item", stackover);
             } else if (button == 1) {
-                return GuiUsageRecipe.openRecipeGui("item", stackover.copy());
+                return GuiUsageRecipe.openRecipeGui("item", stackover);
             }
         }
 
         return false;
     }
 
-    private boolean hideOverlayRecipe() {
+    private static boolean hideOverlayRecipe() {
 
         if (LayoutManager.overlayRenderer != null) {
             LayoutManager.overlayRenderer = null;
@@ -91,19 +85,20 @@ public class RecipeItemInputHandler implements IContainerInputHandler {
         return false;
     }
 
-    private boolean openOverlayRecipe(GuiContainer gui, ItemStack stack, boolean shift) {
+    private static boolean openOverlayRecipe(ItemStack stack, boolean shift) {
+        final GuiContainer gui = NEIClientUtils.getGuiContainer();
 
-        if (gui instanceof GuiRecipe) {
+        if (gui == null || gui instanceof GuiRecipe) {
             return false;
         }
 
         return GuiCraftingRecipe.openRecipeGui("item", true, shift, stack);
     }
 
-    private boolean saveRecipeInBookmark(
-            GuiContainer gui, ItemStack stack, boolean saveIngredients, boolean saveStackSize) {
+    private static boolean saveRecipeInBookmark(ItemStack stack, boolean saveIngredients, boolean saveStackSize) {
 
         if (stack != null) {
+            final GuiContainer gui = NEIClientUtils.getGuiContainer();
             List<PositionedStack> ingredients = null;
             String handlerName = "";
 
@@ -117,6 +112,22 @@ public class RecipeItemInputHandler implements IContainerInputHandler {
         }
 
         return false;
+    }
+
+    @Override
+    public boolean lastKeyTyped(GuiContainer gui, char keyChar, int keyCode) {
+        return lastKeyTyped(GuiContainerManager.getStackMouseOver(gui));
+    }
+
+    @Override
+    public boolean mouseClicked(GuiContainer gui, int mousex, int mousey, int button) {
+        if (!(gui instanceof GuiRecipe)
+                || ItemPanels.itemPanel.contains(mousex, mousey)
+                || ItemPanels.bookmarkPanel.contains(mousex, mousey)) return false;
+
+        ItemStack stackover = GuiContainerManager.getStackMouseOver(gui);
+
+        return mouseClicked(stackover, button);
     }
 
     @Override
