@@ -87,9 +87,13 @@ public class NEIClientConfig {
     public static final Function<IRecipeHandler, String> HANDLER_ID_FUNCTION =
             handler -> Objects.firstNonNull(handler.getOverlayIdentifier(), handler.getHandlerId());
 
+    public static int getHandlerOrder(IRecipeHandler handler) {
+        return handlerOrdering.getOrDefault(HANDLER_ID_FUNCTION.apply(handler), 0);
+    }
+
     // Comparator that compares handlers using the handlerOrdering map.
     public static final Comparator<IRecipeHandler> HANDLER_COMPARATOR =
-            Comparator.comparingInt(handler -> handlerOrdering.getOrDefault(HANDLER_ID_FUNCTION.apply(handler), 0));
+            Comparator.comparingInt(NEIClientConfig::getHandlerOrder);
 
     public static ItemStack[] creativeInv;
 

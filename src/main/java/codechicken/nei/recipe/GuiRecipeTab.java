@@ -140,6 +140,7 @@ public abstract class GuiRecipeTab extends Widget {
             tooltip.add("");
             tooltip.add("HandlerName: " + handlerName);
             tooltip.add("HandlerID: " + handlerID);
+            tooltip.add("HandlerOrder: " + NEIClientConfig.getHandlerOrder(handler));
         }
     }
 
