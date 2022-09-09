@@ -1,7 +1,7 @@
 package codechicken.nei;
 
-import static codechicken.lib.gui.GuiDraw.drawRect;
-import static codechicken.lib.gui.GuiDraw.getMousePosition;
+import static codechicken.lib.gui.GuiDraw.*;
+import static codechicken.nei.NEIClientUtils.mc;
 import static codechicken.nei.NEIClientUtils.translate;
 
 import codechicken.core.CommonUtils;
@@ -994,6 +994,17 @@ public class BookmarkPanel extends PanelWidget {
         } else {
             return super.handleClickExt(mousex, mousey, button);
         }
+    }
+
+    @Override
+    protected boolean handleDraggedClick(int mouseX, int mouseY, int button) {
+        if (grid.contains(mouseX, mouseY)) {
+            draggedStack = null;
+            mc().thePlayer.sendChatMessage("this will add item to bookmark");
+            return true;
+        }
+
+        return false;
     }
 
     @Override
