@@ -250,6 +250,7 @@ public abstract class PanelWidget extends Widget {
             if (handleGUIContainerClick(draggedStack, mouseX, mouseY, button)) {
                 if (draggedStack.stackSize == 0) {
                     draggedStack = null;
+                    ItemPanels.bookmarkPanel.deleteDraggedMeta();
                 }
 
                 return true;
@@ -261,6 +262,7 @@ public abstract class PanelWidget extends Widget {
                     || mouseX >= gui.guiLeft + gui.xSize
                     || mouseY >= gui.guiTop + gui.ySize) {
                 draggedStack = null;
+                ItemPanels.bookmarkPanel.deleteDraggedMeta();
                 return true;
             }
             

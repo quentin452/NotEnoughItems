@@ -1,8 +1,7 @@
 package codechicken.nei;
 
 import static codechicken.lib.gui.GuiDraw.*;
-import static codechicken.nei.NEIClientUtils.mc;
-import static codechicken.nei.NEIClientUtils.translate;
+import static codechicken.nei.NEIClientUtils.*;
 
 import codechicken.core.CommonUtils;
 import codechicken.lib.vec.Rectangle4i;
@@ -30,6 +29,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import org.apache.commons.io.IOUtils;
@@ -48,6 +48,8 @@ public class BookmarkPanel extends PanelWidget {
 
     protected List<BookmarkGrid> namespaces = new ArrayList<>();
     protected int activeNamespaceIndex = 0;
+    
+    private BookmarkStackMeta draggedStackMeta;
 
     protected static class BookmarkStackMeta {
         public int factor;
@@ -222,6 +224,16 @@ public class BookmarkPanel extends PanelWidget {
         public void addItem(ItemStack stackA, BookmarkStackMeta meta) {
             realItems.add(stackA);
             metadata.add(meta);
+            onGridChanged();
+        }
+
+        public void addItem(ItemStack stackA, BookmarkStackMeta meta, int index) {
+            if(index == -1){
+                addItem(stackA, meta);
+                return;
+            }
+            realItems.add(index, stackA);
+            metadata.add(index, meta);
             onGridChanged();
         }
 
@@ -407,12 +419,25 @@ public class BookmarkPanel extends PanelWidget {
         addOrRemoveItem(stackA, null, null, false, false);
     }
 
+    public void addOrRemoveItem(ItemStack stackA, int index) {
+        addOrRemoveItem(stackA, null, null, false, false, index);
+    }
+
     public void addOrRemoveItem(
             ItemStack stackover,
             final String handlerName,
             final List<PositionedStack> ingredients,
             boolean saveIngredients,
-            boolean saveStackSize) {
+            boolean saveStackSize){
+        addOrRemoveItem(stackover, handlerName, ingredients, saveIngredients, saveStackSize, -1);
+    }
+
+    public void addOrRemoveItem(
+            ItemStack stackover,
+            final String handlerName,
+            final List<PositionedStack> ingredients,
+            boolean saveIngredients,
+            boolean saveStackSize, int addIndex) {
         loadBookmarksIfNeeded();
 
         final Point mousePos = getMousePosition();
@@ -462,7 +487,7 @@ public class BookmarkPanel extends PanelWidget {
                                         recipeId != null ? recipeId.copy() : null,
                                         (saveStackSize ? 1 : -1) * count,
                                         true,
-                                        nbTag.hasKey("gtFluidName")));
+                                        nbTag.hasKey("gtFluidName")), addIndex);
                     }
                 }
 
@@ -472,7 +497,7 @@ public class BookmarkPanel extends PanelWidget {
                                 recipeId,
                                 (saveStackSize ? 1 : -1) * nbTagA.getInteger("Count"),
                                 false,
-                                nbTagA.hasKey("gtFluidName")));
+                                nbTagA.hasKey("gtFluidName")), addIndex);
             }
         }
 
@@ -863,8 +888,8 @@ public class BookmarkPanel extends PanelWidget {
 
     @Override
     public void mouseDragged(int mousex, int mousey, int button, long heldTime) {
-
-        if (button == 0 && NEIClientUtils.shiftKey() && mouseDownSlot >= 0) {
+        //legacy sort
+        if (button == 0 && NEIClientUtils.shiftKey() && mouseDownSlot >= 0 && draggedStack == null) {
             ItemPanelSlot mouseOverSlot = getSlotMouseOver(mousex, mousey);
 
             if (sortedStackIndex == -1) {
@@ -935,7 +960,82 @@ public class BookmarkPanel extends PanelWidget {
             return;
         }
 
-        super.mouseDragged(mousex, mousey, button, heldTime);
+        if (mouseDownSlot >= 0
+                && draggedStack == null
+                && NEIClientUtils.getHeldItem() == null
+                && NEIClientConfig.hasSMPCounterPart()
+        ) {
+            ItemPanelSlot mouseOverSlot = getSlotMouseOver(mousex, mousey);
+
+            if (mouseOverSlot == null || mouseOverSlot.slotIndex != mouseDownSlot || heldTime > 500) {
+                draggedStack = getDraggedStackWithQuantity(mouseDownSlot);
+                draggedStackMeta = ((BookmarkGrid) grid).getMetadata(mouseDownSlot);
+                ((BookmarkGrid) grid).removeItem(mouseDownSlot);
+                saveBookmarks();
+                fixCountOfNamespaces();
+                mouseDownSlot = -1;
+            }
+        }
+    }
+    
+    @Override
+    public void update(){
+        int mouseX = getMousePosition().x;
+        int mouseY = getMousePosition().y;
+        if (draggedStack != null) {
+
+            if (!contains(mouseX,mouseY)) {
+                if(sortedStackIndex != -1){
+                    ((BookmarkGrid)grid).removeItem(sortedStackIndex);
+                    sortedStackIndex = -1;
+                }
+            }
+            else{
+                ItemPanelSlot mouseOverSlot = getSlotMouseOver(mouseX, mouseY);
+                if (sortedStackIndex == -1) {
+                    sortedNamespaceIndex = activeNamespaceIndex;
+                    if(mouseOverSlot != null) {
+                        sortedStackIndex = mouseOverSlot.slotIndex;
+                    }
+                    else{
+                        sortedStackIndex = grid.realItems.size();
+                    }
+                    //dummy item
+                    addOrRemoveItem(new ItemStack(Items.paper).setStackDisplayName("aXwghVrfghUctSu"), sortedStackIndex);
+                }
+                else if (mouseOverSlot != null && mouseOverSlot.slotIndex != sortedStackIndex) {
+                    final BookmarkGrid sortedGrid = namespaces.get(sortedNamespaceIndex);
+                    if (sortedGrid.getViewMode() == BookmarkViewMode.DEFAULT) {
+                        sortedGrid.moveItem(sortedStackIndex, mouseOverSlot.slotIndex);
+                        sortedStackIndex = mouseOverSlot.slotIndex;
+                    } else if (sortedGrid.getViewMode() == BookmarkViewMode.TODO_LIST) {
+                        //TODO:setup TODO drag
+                        final ItemStack stack = sortedGrid.getItem(sortedStackIndex);
+                        final BookmarkStackMeta meta = sortedGrid.getMetadata(sortedStackIndex);
+                        final boolean isIngredient = sortedStackIndex > 0
+                                && meta.recipeId != null
+                                && meta.ingredient
+                                && meta.recipeId.equals(sortedGrid.getRecipeId(sortedStackIndex - 1));
+
+                        if (!isIngredient) {
+                            mouseOverSlot = getSlotMouseOver(grid.marginLeft + grid.paddingLeft, mouseY);
+
+                            if (mouseOverSlot != null && sortedStackIndex != mouseOverSlot.slotIndex) {
+                                sortedGrid.moveItem(sortedStackIndex, mouseOverSlot.slotIndex);
+                                sortedStackIndex = sortedGrid.indexOf(stack, meta.recipeId);
+                            }
+
+                        } else if (meta.recipeId != null
+                                && sortedGrid.getMetadata(mouseOverSlot.slotIndex).ingredient
+                                && meta.recipeId.equals(sortedGrid.getRecipeId(mouseOverSlot.slotIndex))) {
+                            sortedGrid.moveItem(sortedStackIndex, mouseOverSlot.slotIndex);
+                            sortedStackIndex = sortedGrid.indexOf(stack, meta.recipeId);
+                        }
+                    }
+                }   
+            }
+        }
+        super.update();
     }
 
     private ItemPanelSlot getNextSlot(int mousex, int mousey, boolean line) {
@@ -960,7 +1060,8 @@ public class BookmarkPanel extends PanelWidget {
     @Override
     public void postDraw(int mousex, int mousey) {
 
-        if (sortedStackIndex != -1) {
+        //legacy sort
+        if (sortedStackIndex != -1 && shiftKey() && draggedStack == null) {
             GuiContainerManager.drawItems.zLevel += 100;
             GuiContainerManager.drawItem(
                     mousex - 8,
@@ -998,12 +1099,20 @@ public class BookmarkPanel extends PanelWidget {
 
     @Override
     protected boolean handleDraggedClick(int mouseX, int mouseY, int button) {
-        if (grid.contains(mouseX, mouseY)) {
+        if (contains(mouseX, mouseY)) {
+            ((BookmarkGrid)grid).removeItem(sortedStackIndex);
+            if(draggedStackMeta != null){
+                ((BookmarkGrid)grid).addItem(draggedStack, draggedStackMeta, sortedStackIndex);
+                fixCountOfNamespaces();
+                saveBookmarks();
+            }
+            else
+                addOrRemoveItem(draggedStack, sortedStackIndex);
+            sortedStackIndex = -1;
             draggedStack = null;
-            mc().thePlayer.sendChatMessage("this will add item to bookmark");
+            draggedStackMeta = null;
             return true;
         }
-
         return false;
     }
 
@@ -1020,8 +1129,7 @@ public class BookmarkPanel extends PanelWidget {
 
     @Override
     public void mouseUp(int mousex, int mousey, int button) {
-        if (sortedStackIndex != -1) {
-            draggedStack = null;
+        if (sortedStackIndex != -1 && draggedStack == null) {
             sortedNamespaceIndex = -1;
             sortedStackIndex = -1;
             mouseDownSlot = -1;
@@ -1099,5 +1207,9 @@ public class BookmarkPanel extends PanelWidget {
             nbTag.setInteger("Count", Math.max(nbTag.getInteger("Count") + factor * shift, factor));
             BGrid.replaceItem(slotIndex, StackInfo.loadFromNBT(nbTag));
         }
+    }
+    
+    public void deleteDraggedMeta(){
+        draggedStackMeta = null;
     }
 }
