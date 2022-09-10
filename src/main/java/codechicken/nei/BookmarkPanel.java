@@ -985,7 +985,7 @@ public class BookmarkPanel extends PanelWidget {
         if (draggedStack != null) {
 
             if (!contains(mouseX,mouseY)) {
-                if(sortedStackIndex != -1){
+                if(sortedStackIndex != -1 && sortedStackIndex < grid.realItems.size()){
                     ((BookmarkGrid)grid).removeItem(sortedStackIndex);
                     sortedStackIndex = -1;
                 }
