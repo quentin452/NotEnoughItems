@@ -183,8 +183,7 @@ public abstract class PanelWidget extends Widget {
         if (mouseDownSlot >= 0
                 && draggedStack == null
                 && NEIClientUtils.getHeldItem() == null
-                && NEIClientConfig.hasSMPCounterPart()
-                ) {
+                && NEIClientConfig.hasSMPCounterPart()) {
             ItemPanelSlot mouseOverSlot = getSlotMouseOver(mousex, mousey);
 
             if (mouseOverSlot == null || mouseOverSlot.slotIndex != mouseDownSlot || heldTime > 500) {
@@ -244,28 +243,26 @@ public abstract class PanelWidget extends Widget {
         if (draggedStack != null) {
             boolean succeed = ItemPanels.bookmarkPanel.handleDraggedClick(mouseX, mouseY, button)
                     || ItemPanels.itemPanel.handleDraggedClick(mouseX, mouseY, button);
-            if(succeed)
-                return true;
+            if (succeed) return true;
 
             if (handleGUIContainerClick(draggedStack, mouseX, mouseY, button)) {
                 if (draggedStack.stackSize == 0) {
+                    ItemPanels.bookmarkPanel.restoreBookmark();
                     draggedStack = null;
-                    ItemPanels.bookmarkPanel.deleteDraggedMeta();
                 }
 
                 return true;
             }
-            
+
             final GuiContainer gui = NEIClientUtils.getGuiContainer();
             if (mouseX < gui.guiLeft
                     || mouseY < gui.guiTop
                     || mouseX >= gui.guiLeft + gui.xSize
                     || mouseY >= gui.guiTop + gui.ySize) {
-                draggedStack = null;
                 ItemPanels.bookmarkPanel.deleteDraggedMeta();
+                draggedStack = null;
                 return true;
             }
-            
         }
         if (NEIClientUtils.getHeldItem() != null) {
             final ItemStack draggedStack = NEIClientUtils.getHeldItem().copy();

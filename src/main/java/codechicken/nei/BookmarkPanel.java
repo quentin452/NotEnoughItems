@@ -48,8 +48,9 @@ public class BookmarkPanel extends PanelWidget {
 
     protected List<BookmarkGrid> namespaces = new ArrayList<>();
     protected int activeNamespaceIndex = 0;
-    
+
     private BookmarkStackMeta draggedStackMeta;
+    private int draggedStackOriginIndex = -1;
 
     protected static class BookmarkStackMeta {
         public int factor;
@@ -228,7 +229,7 @@ public class BookmarkPanel extends PanelWidget {
         }
 
         public void addItem(ItemStack stackA, BookmarkStackMeta meta, int index) {
-            if(index == -1){
+            if (index == -1) {
                 addItem(stackA, meta);
                 return;
             }
@@ -428,7 +429,7 @@ public class BookmarkPanel extends PanelWidget {
             final String handlerName,
             final List<PositionedStack> ingredients,
             boolean saveIngredients,
-            boolean saveStackSize){
+            boolean saveStackSize) {
         addOrRemoveItem(stackover, handlerName, ingredients, saveIngredients, saveStackSize, -1);
     }
 
@@ -437,7 +438,8 @@ public class BookmarkPanel extends PanelWidget {
             final String handlerName,
             final List<PositionedStack> ingredients,
             boolean saveIngredients,
-            boolean saveStackSize, int addIndex) {
+            boolean saveStackSize,
+            int addIndex) {
         loadBookmarksIfNeeded();
 
         final Point mousePos = getMousePosition();
@@ -487,7 +489,8 @@ public class BookmarkPanel extends PanelWidget {
                                         recipeId != null ? recipeId.copy() : null,
                                         (saveStackSize ? 1 : -1) * count,
                                         true,
-                                        nbTag.hasKey("gtFluidName")), addIndex);
+                                        nbTag.hasKey("gtFluidName")),
+                                addIndex);
                     }
                 }
 
@@ -497,7 +500,8 @@ public class BookmarkPanel extends PanelWidget {
                                 recipeId,
                                 (saveStackSize ? 1 : -1) * nbTagA.getInteger("Count"),
                                 false,
-                                nbTagA.hasKey("gtFluidName")), addIndex);
+                                nbTagA.hasKey("gtFluidName")),
+                        addIndex);
             }
         }
 
@@ -888,7 +892,7 @@ public class BookmarkPanel extends PanelWidget {
 
     @Override
     public void mouseDragged(int mousex, int mousey, int button, long heldTime) {
-        //legacy sort
+        // legacy sort
         if (button == 0 && NEIClientUtils.shiftKey() && mouseDownSlot >= 0 && draggedStack == null) {
             ItemPanelSlot mouseOverSlot = getSlotMouseOver(mousex, mousey);
 
@@ -963,13 +967,13 @@ public class BookmarkPanel extends PanelWidget {
         if (mouseDownSlot >= 0
                 && draggedStack == null
                 && NEIClientUtils.getHeldItem() == null
-                && NEIClientConfig.hasSMPCounterPart()
-        ) {
+                && NEIClientConfig.hasSMPCounterPart()) {
             ItemPanelSlot mouseOverSlot = getSlotMouseOver(mousex, mousey);
 
             if (mouseOverSlot == null || mouseOverSlot.slotIndex != mouseDownSlot || heldTime > 500) {
                 draggedStack = getDraggedStackWithQuantity(mouseDownSlot);
                 draggedStackMeta = ((BookmarkGrid) grid).getMetadata(mouseDownSlot);
+                draggedStackOriginIndex = mouseDownSlot;
                 ((BookmarkGrid) grid).removeItem(mouseDownSlot);
                 saveBookmarks();
                 fixCountOfNamespaces();
@@ -977,39 +981,36 @@ public class BookmarkPanel extends PanelWidget {
             }
         }
     }
-    
+
     @Override
-    public void update(){
+    public void update() {
         int mouseX = getMousePosition().x;
         int mouseY = getMousePosition().y;
         if (draggedStack != null) {
 
-            if (!contains(mouseX,mouseY)) {
-                if(sortedStackIndex != -1 && sortedStackIndex < grid.realItems.size()){
-                    ((BookmarkGrid)grid).removeItem(sortedStackIndex);
+            if (!contains(mouseX, mouseY)) {
+                if (sortedStackIndex != -1 && sortedStackIndex < grid.realItems.size()) {
+                    ((BookmarkGrid) grid).removeItem(sortedStackIndex);
                     sortedStackIndex = -1;
                 }
-            }
-            else{
+            } else {
                 ItemPanelSlot mouseOverSlot = getSlotMouseOver(mouseX, mouseY);
                 if (sortedStackIndex == -1) {
                     sortedNamespaceIndex = activeNamespaceIndex;
-                    if(mouseOverSlot != null) {
+                    if (mouseOverSlot != null) {
                         sortedStackIndex = mouseOverSlot.slotIndex;
-                    }
-                    else{
+                    } else {
                         sortedStackIndex = grid.realItems.size();
                     }
-                    //dummy item
-                    addOrRemoveItem(new ItemStack(Items.paper).setStackDisplayName("aXwghVrfghUctSu"), sortedStackIndex);
-                }
-                else if (mouseOverSlot != null && mouseOverSlot.slotIndex != sortedStackIndex) {
+                    // dummy item
+                    addOrRemoveItem(
+                            new ItemStack(Items.paper).setStackDisplayName("this is a dummy item"), sortedStackIndex);
+                } else if (mouseOverSlot != null && mouseOverSlot.slotIndex != sortedStackIndex) {
                     final BookmarkGrid sortedGrid = namespaces.get(sortedNamespaceIndex);
                     if (sortedGrid.getViewMode() == BookmarkViewMode.DEFAULT) {
                         sortedGrid.moveItem(sortedStackIndex, mouseOverSlot.slotIndex);
                         sortedStackIndex = mouseOverSlot.slotIndex;
                     } else if (sortedGrid.getViewMode() == BookmarkViewMode.TODO_LIST) {
-                        //TODO:setup TODO drag
                         final ItemStack stack = sortedGrid.getItem(sortedStackIndex);
                         final BookmarkStackMeta meta = sortedGrid.getMetadata(sortedStackIndex);
                         final boolean isIngredient = sortedStackIndex > 0
@@ -1032,7 +1033,7 @@ public class BookmarkPanel extends PanelWidget {
                             sortedStackIndex = sortedGrid.indexOf(stack, meta.recipeId);
                         }
                     }
-                }   
+                }
             }
         }
         super.update();
@@ -1060,7 +1061,7 @@ public class BookmarkPanel extends PanelWidget {
     @Override
     public void postDraw(int mousex, int mousey) {
 
-        //legacy sort
+        // legacy sort
         if (sortedStackIndex != -1 && shiftKey() && draggedStack == null) {
             GuiContainerManager.drawItems.zLevel += 100;
             GuiContainerManager.drawItem(
@@ -1100,20 +1101,34 @@ public class BookmarkPanel extends PanelWidget {
     @Override
     protected boolean handleDraggedClick(int mouseX, int mouseY, int button) {
         if (contains(mouseX, mouseY)) {
-            ((BookmarkGrid)grid).removeItem(sortedStackIndex);
-            if(draggedStackMeta != null){
-                ((BookmarkGrid)grid).addItem(draggedStack, draggedStackMeta, sortedStackIndex);
+            ((BookmarkGrid) grid).removeItem(sortedStackIndex);
+            if (draggedStackMeta != null) {
+                ((BookmarkGrid) grid).addItem(draggedStack, draggedStackMeta, sortedStackIndex);
                 fixCountOfNamespaces();
                 saveBookmarks();
-            }
-            else
-                addOrRemoveItem(draggedStack, sortedStackIndex);
+            } else addOrRemoveItem(draggedStack, sortedStackIndex);
             sortedStackIndex = -1;
             draggedStack = null;
             draggedStackMeta = null;
+            draggedStackOriginIndex = -1;
             return true;
         }
         return false;
+    }
+
+    public void restoreBookmark() {
+        if (draggedStack != null && draggedStackOriginIndex != -1) {
+            if (sortedStackIndex != -1) ((BookmarkGrid) grid).removeItem(sortedStackIndex);
+            if (draggedStackMeta != null) {
+                ((BookmarkGrid) grid).addItem(draggedStack, draggedStackMeta, draggedStackOriginIndex);
+                fixCountOfNamespaces();
+                saveBookmarks();
+            } else addOrRemoveItem(draggedStack, draggedStackOriginIndex);
+            sortedStackIndex = -1;
+            draggedStack = null;
+            draggedStackMeta = null;
+            draggedStackOriginIndex = -1;
+        }
     }
 
     @Override
@@ -1208,8 +1223,9 @@ public class BookmarkPanel extends PanelWidget {
             BGrid.replaceItem(slotIndex, StackInfo.loadFromNBT(nbTag));
         }
     }
-    
-    public void deleteDraggedMeta(){
+
+    public void deleteDraggedMeta() {
         draggedStackMeta = null;
+        draggedStackOriginIndex = -1;
     }
 }
