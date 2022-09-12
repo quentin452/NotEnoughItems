@@ -1001,13 +1001,14 @@ public class BookmarkPanel extends PanelWidget {
                     if (mouseOverSlot != null) {
                         sortedStackIndex = mouseOverSlot.slotIndex;
                     } else {
-                        sortedStackIndex = grid.realItems.size();
+                        sortedStackIndex = grid.size();
                     }
                     // dummy item
                     addOrRemoveItem(
                             new ItemStack(Items.paper).setStackDisplayName("this is a dummy item"), sortedStackIndex);
                 } else if (mouseOverSlot != null && mouseOverSlot.slotIndex != sortedStackIndex) {
                     final BookmarkGrid sortedGrid = namespaces.get(sortedNamespaceIndex);
+                    if (sortedStackIndex >= grid.size()) sortedStackIndex = grid.size() - 1;
                     if (sortedGrid.getViewMode() == BookmarkViewMode.DEFAULT) {
                         sortedGrid.moveItem(sortedStackIndex, mouseOverSlot.slotIndex);
                         sortedStackIndex = mouseOverSlot.slotIndex;

@@ -8,7 +8,7 @@ import org.lwjgl.opengl.GL11;
 
 public class AnimatedItemStack {
 
-    private static final int steep = 5;
+    private static final int steep = 10;
     private static final float scaleSpeed = 0.1f;
 
     private int lastPosX = -1;
