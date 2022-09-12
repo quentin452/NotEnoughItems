@@ -210,7 +210,7 @@ public class BookmarkPanel extends PanelWidget {
                 final BookmarkStackMeta meta = getMetadata(idx);
                 if ((recipeId == null && meta.recipeId == null
                                 || recipeId != null && meta.recipeId != null && recipeId.equals(meta.recipeId))
-                        && StackInfo.equalItemAndNBT(stackA, realItems.get(idx), useNBT)) {
+                        && StackInfo.equalItemAndNBT(stackA, getItem(idx), useNBT)) {
                     return idx;
                 }
             }
@@ -223,7 +223,7 @@ public class BookmarkPanel extends PanelWidget {
         }
 
         public void addItem(ItemStack stackA, BookmarkStackMeta meta) {
-            realItems.add(stackA);
+            addRealItem(stackA);
             metadata.add(meta);
             onGridChanged();
         }
@@ -233,13 +233,13 @@ public class BookmarkPanel extends PanelWidget {
                 addItem(stackA, meta);
                 return;
             }
-            realItems.add(index, stackA);
+            addRealItem(index, stackA);
             metadata.add(index, meta);
             onGridChanged();
         }
 
         public void replaceItem(int idx, ItemStack stack) {
-            realItems.set(idx, stack);
+            setRealItem(idx, stack);
             onGridChanged();
         }
 
@@ -331,12 +331,13 @@ public class BookmarkPanel extends PanelWidget {
                 final ItemStack stack = getItem(idx);
                 final BookmarkStackMeta meta = getMetadata(idx);
 
-                GuiContainerManager.drawItem(
-                        rect.x + 1,
-                        rect.y + 1,
-                        stack,
-                        true,
-                        meta.factor < 0 || meta.fluidDisplay ? "" : String.valueOf(stack.stackSize));
+                realItems
+                        .get(idx)
+                        .drawItem(
+                                rect.x + 1,
+                                rect.y + 1,
+                                true,
+                                meta.factor < 0 || meta.fluidDisplay ? "" : String.valueOf(stack.stackSize));
 
                 if (meta.recipeId != null && !meta.ingredient && NEIClientConfig.showRecipeMarker()) {
                     drawRecipeMarker(rect.x, rect.y, GuiContainerManager.getFontRenderer(stack));
