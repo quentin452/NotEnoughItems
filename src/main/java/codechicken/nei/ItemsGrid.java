@@ -9,7 +9,9 @@ import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.recipe.StackInfo;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ScaledResolution;
@@ -31,7 +33,7 @@ public class ItemsGrid {
 
     protected int paddingLeft;
 
-    protected ArrayList<ItemStack> realItems = new ArrayList<>();
+    protected ArrayList<AnimatedItemStack> realItems = new ArrayList<>();
 
     protected int page;
     protected int perPage;
@@ -49,11 +51,27 @@ public class ItemsGrid {
     protected boolean refreshBuffer = true;
 
     public ArrayList<ItemStack> getItems() {
-        return realItems;
+        return realItems.stream().map(e -> e.itemStack).collect(Collectors.toCollection(ArrayList::new));
     }
 
     public ItemStack getItem(int idx) {
-        return realItems.get(idx);
+        return realItems.get(idx).itemStack;
+    }
+
+    protected void addRealItems(Collection<ItemStack> itemStack, boolean doPopAnim) {
+        itemStack.forEach(e -> addRealItem(e, doPopAnim));
+    }
+
+    protected void addRealItem(ItemStack itemStack, boolean doPopAnim) {
+        realItems.add(new AnimatedItemStack(itemStack, doPopAnim));
+    }
+
+    protected void addRealItem(int index, ItemStack itemStack, boolean doPopAnim) {
+        realItems.add(index, new AnimatedItemStack(itemStack, doPopAnim));
+    }
+
+    protected void setRealItem(int index, ItemStack itemStack, boolean doPopAnim) {
+        realItems.set(index, new AnimatedItemStack(itemStack, doPopAnim));
     }
 
     public int size() {
@@ -63,7 +81,7 @@ public class ItemsGrid {
     public int indexOf(ItemStack stackA, boolean useNBT) {
 
         for (int idx = 0; idx < realItems.size(); idx++) {
-            if (StackInfo.equalItemAndNBT(stackA, realItems.get(idx), useNBT)) {
+            if (StackInfo.equalItemAndNBT(stackA, getItem(idx), useNBT)) {
                 return idx;
             }
         }
@@ -317,7 +335,7 @@ public class ItemsGrid {
     }
 
     protected void drawItem(Rectangle4i rect, int idx) {
-        GuiContainerManager.drawItem(rect.x + 1, rect.y + 1, getItem(idx));
+        realItems.get(idx).drawItem(rect.x + 1, rect.y + 1);
     }
 
     public ItemPanelSlot getSlotMouseOver(int mousex, int mousey) {

@@ -15,7 +15,7 @@ import net.minecraft.item.ItemStack;
 public abstract class PanelWidget extends Widget {
     protected static final int PADDING = 2;
 
-    public ItemStack draggedStack;
+    public static ItemStack draggedStack;
     public int mouseDownSlot = -1;
 
     public Button pagePrev;
@@ -183,8 +183,7 @@ public abstract class PanelWidget extends Widget {
         if (mouseDownSlot >= 0
                 && draggedStack == null
                 && NEIClientUtils.getHeldItem() == null
-                && NEIClientConfig.hasSMPCounterPart()
-                && !GuiInfo.hasCustomSlots(NEIClientUtils.getGuiContainer())) {
+                && NEIClientConfig.hasSMPCounterPart()) {
             ItemPanelSlot mouseOverSlot = getSlotMouseOver(mousex, mousey);
 
             if (mouseOverSlot == null || mouseOverSlot.slotIndex != mouseDownSlot || heldTime > 500) {
@@ -241,14 +240,30 @@ public abstract class PanelWidget extends Widget {
 
     @Override
     public boolean handleClickExt(int mouseX, int mouseY, int button) {
-        if (ItemPanels.itemPanel.draggedStack != null) {
-            return ItemPanels.itemPanel.handleDraggedClick(mouseX, mouseY, button);
-        }
+        if (draggedStack != null) {
+            boolean succeed = ItemPanels.bookmarkPanel.handleDraggedClick(mouseX, mouseY, button)
+                    || ItemPanels.itemPanel.handleDraggedClick(mouseX, mouseY, button);
+            if (succeed) return true;
 
-        if (ItemPanels.bookmarkPanel.draggedStack != null) {
-            return ItemPanels.bookmarkPanel.handleDraggedClick(mouseX, mouseY, button);
-        }
+            if (handleGUIContainerClick(draggedStack, mouseX, mouseY, button)) {
+                if (draggedStack.stackSize == 0) {
+                    ItemPanels.bookmarkPanel.restoreBookmark();
+                    draggedStack = null;
+                }
 
+                return true;
+            }
+
+            final GuiContainer gui = NEIClientUtils.getGuiContainer();
+            if (mouseX < gui.guiLeft
+                    || mouseY < gui.guiTop
+                    || mouseX >= gui.guiLeft + gui.xSize
+                    || mouseY >= gui.guiTop + gui.ySize) {
+                ItemPanels.bookmarkPanel.deleteDraggedMeta();
+                draggedStack = null;
+                return true;
+            }
+        }
         if (NEIClientUtils.getHeldItem() != null) {
             final ItemStack draggedStack = NEIClientUtils.getHeldItem().copy();
             return handleGUIContainerClick(draggedStack, mouseX, mouseY, button);
@@ -258,28 +273,7 @@ public abstract class PanelWidget extends Widget {
     }
 
     protected boolean handleDraggedClick(int mouseX, int mouseY, int button) {
-        if (draggedStack == null) {
-            return false;
-        }
-
-        if (handleGUIContainerClick(draggedStack, mouseX, mouseY, button)) {
-
-            if (draggedStack.stackSize == 0) {
-                draggedStack = null;
-            }
-
-            return true;
-        }
-
-        final GuiContainer gui = NEIClientUtils.getGuiContainer();
-        if (mouseX < gui.guiLeft
-                || mouseY < gui.guiTop
-                || mouseX >= gui.guiLeft + gui.xSize
-                || mouseY >= gui.guiTop + gui.ySize) {
-            draggedStack = null;
-        }
-
-        return true;
+        return false;
     }
 
     protected boolean handleGUIContainerClick(final ItemStack draggedStack, int mouseX, int mouseY, int button) {
