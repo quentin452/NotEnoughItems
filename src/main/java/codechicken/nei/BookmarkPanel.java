@@ -223,7 +223,7 @@ public class BookmarkPanel extends PanelWidget {
         }
 
         public void addItem(ItemStack stackA, BookmarkStackMeta meta) {
-            addRealItem(stackA);
+            addRealItem(stackA, true);
             metadata.add(meta);
             onGridChanged();
         }
@@ -233,13 +233,13 @@ public class BookmarkPanel extends PanelWidget {
                 addItem(stackA, meta);
                 return;
             }
-            addRealItem(index, stackA);
+            addRealItem(index, stackA, true);
             metadata.add(index, meta);
             onGridChanged();
         }
 
         public void replaceItem(int idx, ItemStack stack) {
-            setRealItem(idx, stack);
+            setRealItem(idx, stack, true);
             onGridChanged();
         }
 
