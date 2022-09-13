@@ -337,7 +337,8 @@ public class BookmarkPanel extends PanelWidget {
                                 rect.x + 1,
                                 rect.y + 1,
                                 true,
-                                meta.factor < 0 || meta.fluidDisplay ? "" : String.valueOf(stack.stackSize));
+                                meta.factor < 0 || meta.fluidDisplay ? "" : String.valueOf(stack.stackSize),
+                                draggedStack == null);
 
                 if (meta.recipeId != null && !meta.ingredient && NEIClientConfig.showRecipeMarker()) {
                     drawRecipeMarker(rect.x, rect.y, GuiContainerManager.getFontRenderer(stack));
