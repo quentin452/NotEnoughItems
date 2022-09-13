@@ -769,7 +769,7 @@ public class BookmarkPanel extends PanelWidget {
                                                             .get("ingredient")
                                                             .getAsBoolean()
                                                     : false,
-                                            itemStackNBT.hasKey("gtFluidName")), 
+                                            itemStackNBT.hasKey("gtFluidName")),
                                     false);
                 } else {
                     NEIClientConfig.logger.warn(

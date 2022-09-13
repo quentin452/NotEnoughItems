@@ -34,8 +34,7 @@ public class AnimatedItemStack {
             drawPoppingItem(x, y, smallAmount, stackSize);
         } else if (doMoveAnim && lastPosX != x || lastPosY != y) {
             drawMovingItem(x, y, smallAmount, stackSize);
-        }
-        else{
+        } else {
             GuiContainerManager.drawItem(x, y, itemStack, smallAmount, stackSize);
         }
     }
