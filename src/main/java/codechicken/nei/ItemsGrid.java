@@ -58,20 +58,20 @@ public class ItemsGrid {
         return realItems.get(idx).itemStack;
     }
 
-    protected void addRealItems(Collection<ItemStack> itemStack, boolean doPopAnim) {
-        itemStack.forEach(e -> addRealItem(e, doPopAnim));
+    protected void addRealItems(Collection<ItemStack> itemStack, boolean doAnim) {
+        itemStack.forEach(e -> addRealItem(e, doAnim));
     }
 
-    protected void addRealItem(ItemStack itemStack, boolean doPopAnim) {
-        realItems.add(new AnimatedItemStack(itemStack, doPopAnim));
+    protected void addRealItem(ItemStack itemStack, boolean doAnim) {
+        realItems.add(new AnimatedItemStack(itemStack, doAnim));
     }
 
-    protected void addRealItem(int index, ItemStack itemStack, boolean doPopAnim) {
-        realItems.add(index, new AnimatedItemStack(itemStack, doPopAnim));
+    protected void addRealItem(int index, ItemStack itemStack, boolean doAnim) {
+        realItems.add(index, new AnimatedItemStack(itemStack, doAnim));
     }
 
-    protected void setRealItem(int index, ItemStack itemStack, boolean doPopAnim) {
-        realItems.set(index, new AnimatedItemStack(itemStack, doPopAnim));
+    protected void setRealItem(int index, ItemStack itemStack, boolean doAnim) {
+        realItems.set(index, new AnimatedItemStack(itemStack, doAnim));
     }
 
     public int size() {

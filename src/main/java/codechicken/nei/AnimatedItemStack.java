@@ -14,13 +14,13 @@ public class AnimatedItemStack {
     private int lastPosX = -1;
     private int lastPosY = -1;
     private float currentScale = 0;
-    private boolean doPopAnim;
+    private boolean doAnim;
 
     public ItemStack itemStack;
 
-    public AnimatedItemStack(ItemStack itemStack, boolean doPopAnim) {
+    public AnimatedItemStack(ItemStack itemStack, boolean doAnim) {
         this.itemStack = itemStack;
-        this.doPopAnim = doPopAnim;
+        this.doAnim = doAnim;
     }
 
     public void drawItem(int x, int y) {
@@ -28,13 +28,16 @@ public class AnimatedItemStack {
     }
 
     public void drawItem(int x, int y, boolean smallAmount, String stackSize) {
-        if (doPopAnim && currentScale < 1) {
-            drawPoppingItem(x, y, smallAmount, stackSize);
-        } else if (lastPosX != x || lastPosY != y) {
-            drawMovingItem(x, y, smallAmount, stackSize);
-        } else {
-            GuiContainerManager.drawItem(x, y, itemStack, smallAmount, stackSize);
+        if (doAnim) {
+            if (currentScale < 1) {
+                drawPoppingItem(x, y, smallAmount, stackSize);
+                return;
+            } else if (lastPosX != x || lastPosY != y) {
+                drawMovingItem(x, y, smallAmount, stackSize);
+                return;
+            }
         }
+        GuiContainerManager.drawItem(x, y, itemStack, smallAmount, stackSize);
     }
 
     private void drawPoppingItem(int x, int y, boolean smallAmount, String stackSize) {
