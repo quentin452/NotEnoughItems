@@ -222,24 +222,24 @@ public class BookmarkPanel extends PanelWidget {
             return metadata.get(idx);
         }
 
-        public void addItem(ItemStack stackA, BookmarkStackMeta meta) {
-            addRealItem(stackA, true);
+        public void addItem(ItemStack stackA, BookmarkStackMeta meta, boolean doPopAnim) {
+            addRealItem(stackA, true, doPopAnim);
             metadata.add(meta);
             onGridChanged();
         }
 
         public void addItem(ItemStack stackA, BookmarkStackMeta meta, int index) {
             if (index == -1) {
-                addItem(stackA, meta);
+                addItem(stackA, meta, true);
                 return;
             }
-            addRealItem(index, stackA, true);
+            addRealItem(index, stackA, true, true);
             metadata.add(index, meta);
             onGridChanged();
         }
 
         public void replaceItem(int idx, ItemStack stack) {
-            setRealItem(idx, stack, true);
+            setRealItem(idx, stack, true, true);
             onGridChanged();
         }
 
@@ -769,7 +769,8 @@ public class BookmarkPanel extends PanelWidget {
                                                             .get("ingredient")
                                                             .getAsBoolean()
                                                     : false,
-                                            itemStackNBT.hasKey("gtFluidName")));
+                                            itemStackNBT.hasKey("gtFluidName")), 
+                                    false);
                 } else {
                     NEIClientConfig.logger.warn(
                             "Failed to load bookmarked ItemStack from json string, the item no longer exists:\n{}",
@@ -923,7 +924,7 @@ public class BookmarkPanel extends PanelWidget {
                         final BookmarkStackMeta meta = sortedGrid.getMetadata(sortedStackIndex);
 
                         sortedGrid.removeItem(sortedStackIndex);
-                        hoverGrid.addItem(stack, meta);
+                        hoverGrid.addItem(stack, meta, true);
 
                         sortedNamespaceIndex = activeNamespaceIndex;
                         sortedStackIndex = hoverGrid.indexOf(stack, meta.recipeId);
