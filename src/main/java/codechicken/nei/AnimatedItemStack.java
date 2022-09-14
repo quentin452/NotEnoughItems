@@ -14,27 +14,33 @@ public class AnimatedItemStack {
     private int lastPosX = -1;
     private int lastPosY = -1;
     private float currentScale = 0;
-    private boolean doPopAnim;
+    private final boolean doMoveAnim;
+    private final boolean doPopAnim;
 
     public ItemStack itemStack;
 
-    public AnimatedItemStack(ItemStack itemStack, boolean doPopAnim) {
+    public AnimatedItemStack(ItemStack itemStack, boolean doMoveAnim, boolean doPopAnim) {
         this.itemStack = itemStack;
+        this.doMoveAnim = doMoveAnim;
         this.doPopAnim = doPopAnim;
     }
 
     public void drawItem(int x, int y) {
-        drawItem(x, y, false, null);
+        drawItem(x, y, false, null, false);
     }
 
-    public void drawItem(int x, int y, boolean smallAmount, String stackSize) {
+    public void drawItem(int x, int y, boolean smallAmount, String stackSize, boolean blockMoveAnimOnce) {
         if (doPopAnim && currentScale < 1) {
             drawPoppingItem(x, y, smallAmount, stackSize);
-        } else if (lastPosX != x || lastPosY != y) {
-            drawMovingItem(x, y, smallAmount, stackSize);
-        } else {
-            GuiContainerManager.drawItem(x, y, itemStack, smallAmount, stackSize);
+            return;
         }
+        if (doMoveAnim && (lastPosX != x || lastPosY != y) && !blockMoveAnimOnce) {
+            drawMovingItem(x, y, smallAmount, stackSize);
+            return;
+        }
+        lastPosX = x;
+        lastPosY = y;
+        GuiContainerManager.drawItem(x, y, itemStack, smallAmount, stackSize);
     }
 
     private void drawPoppingItem(int x, int y, boolean smallAmount, String stackSize) {
