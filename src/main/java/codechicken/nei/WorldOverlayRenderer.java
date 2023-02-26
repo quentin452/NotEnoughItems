@@ -1,6 +1,7 @@
 package codechicken.nei;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.entity.passive.EntityPig;
@@ -113,7 +114,6 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDisable(GL11.GL_LIGHTING);
         GL11.glLineWidth(1.5F);
-        GL11.glBegin(GL11.GL_LINES);
 
         GL11.glColor4f(1, 0, 0, 1);
         int curSpawnMode = 2;
@@ -122,6 +122,9 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
         int x1 = (int) entity.posX - intOffsetX;
         int z1 = (int) entity.posZ - intOffsetZ;
         int y1 = (int) MathHelper.clip(entity.posY, 16, world.getHeight() - 16) - intOffsetY;
+
+        final Tessellator tess = Tessellator.instance;
+        tess.startDrawing(GL11.GL_LINES);
 
         for (int i = 0; i <= 32; i++) {
             int x = x1 - 16 + i;
@@ -140,22 +143,22 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
 
                     if (spawnMode != curSpawnMode) {
                         if (spawnMode == 1) {
-                            GL11.glColor4f(1, 1, 0, 1);
+                            tess.setColorOpaque(255, 255, 0);
                         } else {
-                            GL11.glColor4f(1, 0, 0, 1);
+                            tess.setColorOpaque(255, 0, 0);
                         }
                         curSpawnMode = spawnMode;
                     }
 
-                    GL11.glVertex3d(x, y + 0.02, z);
-                    GL11.glVertex3d(x + 1, y + 0.02, z + 1);
-                    GL11.glVertex3d(x + 1, y + 0.02, z);
-                    GL11.glVertex3d(x, y + 0.02, z + 1);
+                    tess.addVertex(x, y + 0.02, z);
+                    tess.addVertex(x + 1, y + 0.02, z + 1);
+                    tess.addVertex(x + 1, y + 0.02, z);
+                    tess.addVertex(x, y + 0.02, z + 1);
                 }
             }
         }
 
-        GL11.glEnd();
+        tess.draw();
         GL11.glEnable(GL11.GL_LIGHTING);
         GL11.glEnable(GL11.GL_TEXTURE_2D);
         GL11.glDisable(GL11.GL_BLEND);
@@ -165,8 +168,8 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
     private static final AxisAlignedBB aabb = AxisAlignedBB.getBoundingBox(0, 0, 0, 0, 0, 0);
 
     private static byte getSpawnMode(Chunk chunk, int x, int y, int z) {
-        if (!SpawnerAnimals.canCreatureTypeSpawnAtLocation(EnumCreatureType.monster, chunk.worldObj, x, y, z)
-                || chunk.getSavedLightValue(EnumSkyBlock.Block, x & 15, y, z & 15) >= 8) {
+        if (chunk.getSavedLightValue(EnumSkyBlock.Block, x & 15, y, z & 15) >= 8
+                || !SpawnerAnimals.canCreatureTypeSpawnAtLocation(EnumCreatureType.monster, chunk.worldObj, x, y, z)) {
             return 0;
         }
 
