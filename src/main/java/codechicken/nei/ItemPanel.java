@@ -166,19 +166,33 @@ public class ItemPanel extends PanelWidget {
     }
 
     protected int resizeFooter(GuiContainer gui) {
-        if (!NEIClientConfig.showItemQuantityWidget()) return 0;
+        if (!(NEIClientConfig.showItemQuantityWidget() || !NEIClientConfig.isSearchWidgetCentered())) return 0;
 
         final int BUTTON_SIZE = 16;
 
         more.w = less.w = BUTTON_SIZE;
-        more.h = less.h = quantity.h = BUTTON_SIZE;
 
-        less.x = x;
-        more.x = x + w - BUTTON_SIZE;
-        more.y = less.y = quantity.y = y + h - BUTTON_SIZE;
 
-        quantity.x = x + BUTTON_SIZE + 2;
-        quantity.w = more.x - quantity.x - 2;
+        if (NEIClientConfig.isSearchWidgetCentered()) {
+            more.x = x + w - BUTTON_SIZE;
+            more.h = less.h = quantity.h = BUTTON_SIZE;
+            more.y = less.y = quantity.y = y + h - BUTTON_SIZE;
+            less.x = x;
+            quantity.x = x + BUTTON_SIZE + 2;
+            quantity.w = more.x - quantity.x - 2;
+        } else {
+            more.x = less.x;
+            more.y = y + h - BUTTON_SIZE;
+            more.h = less.h = BUTTON_SIZE / 2;
+
+            less.x = (int) (x + (w * 0.7));
+            less.y = more.y + more.h;
+
+            quantity.h = BUTTON_SIZE;
+            quantity.x = less.x + less.w + 1;
+            quantity.y = y + h - BUTTON_SIZE;
+            quantity.w = x + w - quantity.x;
+        }
 
         return BUTTON_SIZE + 2;
     }

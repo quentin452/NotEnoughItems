@@ -247,6 +247,9 @@ public class NEIClientConfig {
         tag.getTag("inventory.showItemQuantityWidget").setComment("Show Item Quantity Widget").getBooleanValue(true);
         API.addOption(new OptionToggleButton("inventory.showItemQuantityWidget", true));
 
+        tag.getTag("inventory.centerSearchWidget").setComment("Center Search Widget").getBooleanValue(true);
+        API.addOption(new OptionToggleButton("inventory.centerSearchWidget", true));
+
         tag.getTag("inventory.jei_style_tabs").setComment("Enable/disable JEI Style Tabs").getBooleanValue(true);
         API.addOption(new OptionToggleButtonBoubs("inventory.jei_style_tabs", true));
         tag.getTag("inventory.jei_style_item_presence_overlay")
@@ -552,6 +555,10 @@ public class NEIClientConfig {
 
     public static boolean showItemQuantityWidget() {
         return getBooleanSetting("inventory.showItemQuantityWidget");
+    }
+
+    public static boolean isSearchWidgetCentered() {
+        return getBooleanSetting("inventory.centerSearchWidget");
     }
 
     public static boolean areJEIStyleTabsVisible() {
