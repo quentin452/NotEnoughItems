@@ -172,7 +172,6 @@ public class ItemPanel extends PanelWidget {
 
         more.w = less.w = BUTTON_SIZE;
 
-
         if (NEIClientConfig.isSearchWidgetCentered()) {
             more.x = x + w - BUTTON_SIZE;
             more.h = less.h = quantity.h = BUTTON_SIZE;
