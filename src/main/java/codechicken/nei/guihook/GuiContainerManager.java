@@ -189,9 +189,7 @@ public class GuiContainerManager {
     public static String itemCountDetails(ItemStack stack) {
         FluidStack fluid = StackInfo.getFluid(stack);
         if (fluid != null) {
-            fluid = fluid.copy();
-            fluid.amount = fluid.amount * Math.max(1, stack.stackSize);
-            return fluidAmountDetails(fluid);
+            return fluidAmountDetails(fluid.amount * Math.max(1, stack.stackSize));
         } else {
             return countDetails(
                     stack.stackSize,
@@ -201,9 +199,15 @@ public class GuiContainerManager {
         }
     }
 
+    @SuppressWarnings("unused")
     @Nullable
     public static String fluidAmountDetails(FluidStack fluid) {
-        return countDetails(fluid.amount, 144, "Amount: %s L = %s * %s L + %s L", "Amount: %s L = %s * %s L");
+        return fluidAmountDetails(fluid.amount);
+    }
+
+    @Nullable
+    public static String fluidAmountDetails(int amount) {
+        return countDetails(amount, 144, "Amount: %s L = %s * %s L + %s L", "Amount: %s L = %s * %s L");
     }
 
     /**
