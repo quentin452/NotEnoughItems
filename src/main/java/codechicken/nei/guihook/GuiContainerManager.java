@@ -36,6 +36,8 @@ import codechicken.nei.NEIClientConfig;
 import codechicken.nei.NEIClientUtils;
 import codechicken.nei.recipe.StackInfo;
 
+import javax.annotation.Nullable;
+
 public class GuiContainerManager {
 
     public GuiContainer window;
@@ -159,33 +161,21 @@ public class GuiContainerManager {
         return namelist;
     }
 
-    public static String itemCountDetails(ItemStack stack) {
-        final FluidStack fluid = StackInfo.getFluid(stack);
-        int maxStackSize = stack.getMaxStackSize();
-        int stackSize = stack.stackSize;
-        String FULL_PATTERN = "Count: %s = %s * %s + %s";
-        String SHORT_PATTERN = "Count: %s = %s * %s";
-
-        if (fluid != null) {
-            maxStackSize = 144;
-            stackSize = fluid.amount * Math.max(1, stack.stackSize);
-            FULL_PATTERN = "Amount: %s L = %s * %s L + %s L";
-            SHORT_PATTERN = "Amount: %s L = %s * %s L";
-        }
-
+    @Nullable
+    public static String countDetails(int stackSize, int maxStackSize, String fullPattern, String shortPattern) {
         if (maxStackSize > 1 && stackSize > maxStackSize) {
             final int remainder = stackSize % maxStackSize;
 
             if (remainder > 0) {
                 return String.format(
-                        FULL_PATTERN,
+                        fullPattern,
                         NEIClientUtils.formatNumbers(stackSize),
                         NEIClientUtils.formatNumbers(stackSize / maxStackSize),
                         NEIClientUtils.formatNumbers(maxStackSize),
                         NEIClientUtils.formatNumbers(remainder));
             } else {
                 return String.format(
-                        SHORT_PATTERN,
+                        shortPattern,
                         NEIClientUtils.formatNumbers(stackSize),
                         NEIClientUtils.formatNumbers(stackSize / maxStackSize),
                         NEIClientUtils.formatNumbers(maxStackSize));
@@ -193,6 +183,27 @@ public class GuiContainerManager {
         }
 
         return null;
+    }
+
+    @Nullable
+    public static String itemCountDetails(ItemStack stack) {
+        FluidStack fluid = StackInfo.getFluid(stack);
+        if (fluid != null) {
+            fluid = fluid.copy();
+            fluid.amount = fluid.amount * Math.max(1, stack.stackSize);
+            return fluidAmountDetails(fluid);
+        } else {
+            return countDetails(
+                    stack.stackSize,
+                    stack.getMaxStackSize(),
+                    "Count: %s = %s * %s + %s",
+                    "Count: %s = %s * %s");
+        }
+    }
+
+    @Nullable
+    public static String fluidAmountDetails(FluidStack fluid) {
+        return countDetails(fluid.amount, 144, "Amount: %s L = %s * %s L + %s L", "Amount: %s L = %s * %s L");
     }
 
     /**
