@@ -21,6 +21,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.lwjgl.input.Keyboard;
 
+import com.google.common.base.Objects;
+
 import codechicken.core.CCUpdateChecker;
 import codechicken.core.ClassDiscoverer;
 import codechicken.core.ClientUtils;
@@ -52,8 +54,6 @@ import codechicken.nei.recipe.IRecipeHandler;
 import codechicken.nei.recipe.RecipeCatalysts;
 import codechicken.nei.recipe.RecipeInfo;
 import codechicken.obfuscator.ObfuscationRun;
-
-import com.google.common.base.Objects;
 
 public class NEIClientConfig {
 

@@ -8,11 +8,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import codechicken.lib.vec.Rectangle4i;
-import codechicken.nei.LayoutManager;
-
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
+
+import codechicken.lib.vec.Rectangle4i;
+import codechicken.nei.LayoutManager;
 
 public abstract class OptionStringSet extends Option {
 

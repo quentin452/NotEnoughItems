@@ -21,6 +21,11 @@ import net.minecraft.item.ItemStack;
 import org.apache.commons.io.IOUtils;
 import org.lwjgl.input.Keyboard;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSyntaxException;
+
 import codechicken.core.CommonUtils;
 import codechicken.core.gui.GuiScrollSlot;
 import codechicken.lib.gui.GuiDraw;
@@ -30,11 +35,6 @@ import codechicken.nei.api.ItemFilter;
 import codechicken.nei.recipe.GuiRecipe;
 import codechicken.nei.recipe.StackInfo;
 import codechicken.nei.util.NBTJson;
-
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSyntaxException;
 import cpw.mods.fml.common.registry.GameRegistry;
 
 public class PresetsWidget extends Widget {

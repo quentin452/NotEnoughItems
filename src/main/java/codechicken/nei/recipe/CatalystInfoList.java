@@ -8,10 +8,10 @@ import javax.annotation.Nonnull;
 
 import net.minecraft.item.ItemStack;
 
+import com.google.common.collect.ForwardingList;
+
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.NEIServerUtils;
-
-import com.google.common.collect.ForwardingList;
 
 // Do not directly extend ArrayList, see Effective Java Item 16
 public class CatalystInfoList extends ForwardingList<CatalystInfo> {

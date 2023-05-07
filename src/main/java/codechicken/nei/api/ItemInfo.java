@@ -39,6 +39,8 @@ import net.minecraftforge.common.BiomeDictionary;
 import net.minecraftforge.common.IShearable;
 import net.minecraftforge.oredict.OreDictionary;
 
+import com.google.common.collect.ArrayListMultimap;
+
 import codechicken.core.featurehack.GameDataManipulator;
 import codechicken.nei.InfiniteStackSizeHandler;
 import codechicken.nei.InfiniteToolHandler;
@@ -55,9 +57,6 @@ import codechicken.nei.config.RegistryDumper;
 import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.recipe.BrewingRecipeHandler;
 import codechicken.nei.recipe.RecipeItemInputHandler;
-
-import com.google.common.collect.ArrayListMultimap;
-
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.ModContainer;
 import cpw.mods.fml.common.registry.GameRegistry;

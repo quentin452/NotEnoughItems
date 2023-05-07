@@ -24,11 +24,11 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
+import com.google.common.base.Objects;
+
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.NEIServerUtils;
 import codechicken.nei.PositionedStack;
-
-import com.google.common.base.Objects;
 import cpw.mods.fml.common.Loader;
 
 public class RecipeCatalysts {

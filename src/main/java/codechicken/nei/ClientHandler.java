@@ -37,6 +37,8 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.IOUtils;
 
+import com.google.common.collect.Lists;
+
 import codechicken.core.ClientUtils;
 import codechicken.core.GuiModListScroll;
 import codechicken.lib.packet.PacketCustom;
@@ -44,9 +46,6 @@ import codechicken.nei.api.API;
 import codechicken.nei.api.ItemInfo;
 import codechicken.nei.recipe.GuiRecipeTab;
 import codechicken.nei.recipe.StackInfo;
-
-import com.google.common.collect.Lists;
-
 import cpw.mods.fml.client.CustomModLoadingErrorDisplayException;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;

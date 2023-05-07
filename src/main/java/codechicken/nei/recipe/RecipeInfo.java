@@ -8,12 +8,12 @@ import net.minecraft.client.gui.inventory.GuiCrafting;
 import net.minecraft.client.gui.inventory.GuiFurnace;
 import net.minecraft.client.gui.inventory.GuiInventory;
 
+import com.google.common.base.Objects;
+
 import codechicken.nei.OffsetPositioner;
 import codechicken.nei.api.API;
 import codechicken.nei.api.IOverlayHandler;
 import codechicken.nei.api.IStackPositioner;
-
-import com.google.common.base.Objects;
 
 public class RecipeInfo {
 

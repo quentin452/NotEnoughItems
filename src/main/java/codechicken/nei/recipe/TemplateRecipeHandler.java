@@ -29,6 +29,8 @@ import net.minecraft.tileentity.TileEntityFurnace;
 
 import org.lwjgl.opengl.GL11;
 
+import com.google.common.base.Stopwatch;
+
 import codechicken.lib.vec.Rectangle4i;
 import codechicken.nei.ItemList;
 import codechicken.nei.NEIClientConfig;
@@ -42,8 +44,6 @@ import codechicken.nei.api.IStackPositioner;
 import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.guihook.IContainerInputHandler;
 import codechicken.nei.guihook.IContainerTooltipHandler;
-
-import com.google.common.base.Stopwatch;
 
 /**
  * A Template Recipe Handler! How about that. Because it was sooo hard, and more seriously required lots of copied code

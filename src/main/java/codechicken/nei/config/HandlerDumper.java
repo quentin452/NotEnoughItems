@@ -10,6 +10,8 @@ import net.minecraft.util.ChatComponentTranslation;
 
 import org.apache.commons.io.IOUtils;
 
+import com.google.common.base.Objects;
+
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.recipe.GuiRecipeTab;
 import codechicken.nei.recipe.GuiUsageRecipe;
@@ -17,8 +19,6 @@ import codechicken.nei.recipe.HandlerInfo;
 import codechicken.nei.recipe.IRecipeHandler;
 import codechicken.nei.recipe.TemplateRecipeHandler;
 import codechicken.nei.util.NBTJson;
-
-import com.google.common.base.Objects;
 
 public class HandlerDumper extends DataDumper {
 

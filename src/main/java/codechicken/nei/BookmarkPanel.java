@@ -24,6 +24,11 @@ import net.minecraft.nbt.NBTTagCompound;
 import org.apache.commons.io.IOUtils;
 import org.lwjgl.opengl.GL11;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSyntaxException;
+
 import codechicken.core.CommonUtils;
 import codechicken.lib.vec.Rectangle4i;
 import codechicken.nei.ItemPanel.ItemPanelSlot;
@@ -32,11 +37,6 @@ import codechicken.nei.recipe.BookmarkRecipeId;
 import codechicken.nei.recipe.StackInfo;
 import codechicken.nei.util.NBTJson;
 import codechicken.nei.util.ReadableNumberConverter;
-
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
-import com.google.gson.JsonSyntaxException;
 
 public class BookmarkPanel extends PanelWidget {
 

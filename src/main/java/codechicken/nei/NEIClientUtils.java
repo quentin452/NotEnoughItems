@@ -43,14 +43,14 @@ import net.minecraft.util.ResourceLocation;
 
 import org.lwjgl.input.Keyboard;
 
+import com.google.common.collect.Iterables;
+
 import codechicken.lib.inventory.InventoryRange;
 import codechicken.lib.inventory.InventoryUtils;
 import codechicken.lib.util.LangProxy;
 import codechicken.nei.api.GuiInfo;
 import codechicken.nei.api.IInfiniteItemHandler;
 import codechicken.nei.api.ItemInfo;
-
-import com.google.common.collect.Iterables;
 
 public class NEIClientUtils extends NEIServerUtils {
 

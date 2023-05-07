@@ -1,6 +1,7 @@
 package codechicken.nei;
 
 import com.google.common.base.Objects;
+
 import cpw.mods.fml.common.FMLCommonHandler;
 
 public class ThreadOperationTimer extends Thread {

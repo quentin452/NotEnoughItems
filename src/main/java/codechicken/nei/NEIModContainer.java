@@ -5,16 +5,15 @@ import java.util.*;
 
 import net.minecraft.util.EnumChatFormatting;
 
+import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
+
 import codechicken.core.CommonUtils;
 import codechicken.core.launch.CodeChickenCorePlugin;
 import codechicken.nei.api.IConfigureNEI;
 import codechicken.nei.asm.NEICorePlugin;
 import codechicken.nei.config.IMCHandler;
 import codechicken.nei.recipe.GuiRecipeTab;
-
-import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
-
 import cpw.mods.fml.client.FMLFileResourcePack;
 import cpw.mods.fml.client.FMLFolderResourcePack;
 import cpw.mods.fml.common.DummyModContainer;
