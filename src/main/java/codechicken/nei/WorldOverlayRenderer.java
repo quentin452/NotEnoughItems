@@ -24,10 +24,13 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
     public static int mobOverlay = 0;
     private static byte[] mobSpawnCache;
     private static long mobOverlayUpdateTime;
+    private static boolean useNewGTOregenPattern;
+    private static boolean hasuseNewGTOregenPatternbeenset = false;
 
     public static void reset() {
         mobOverlay = 0;
         chunkOverlay = 0;
+        hasuseNewGTOregenPatternbeenset = false;
     }
 
     @Override
@@ -279,8 +282,41 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
                         GL11.glVertex3d(x2, y2, z1 + h);
                     }
                 } else if (chunkOverlay == 3) {
-                    int gx1 = ((Math.floorDiv(entity.chunkCoordX, 3) * 3) << 4) - intOffsetX;
-                    int gz1 = ((Math.floorDiv(entity.chunkCoordZ, 3) * 3) << 4) - intOffsetZ;
+                    if (!hasuseNewGTOregenPatternbeenset) {
+                        try {
+                            useNewGTOregenPattern = (boolean) Class.forName("gregtech.common.GT_Worldgenerator")
+                                    .getDeclaredField("useNewOregenPattern").get(null);
+                        } catch (Exception ignored) {
+                            NEIClientConfig.logger.info("useNewGTOregenPattern is having problems");
+                            useNewGTOregenPattern = false;
+                        }
+                        if (!useNewGTOregenPattern) {
+                            NEIClientConfig.logger.info("useNewGTOregenPattern is false");
+                        }
+                        if (useNewGTOregenPattern) {
+                            NEIClientConfig.logger.info("useNewGTOregenPattern is true");
+                        }
+                        hasuseNewGTOregenPatternbeenset = true;
+                    }
+                    int gx1;
+                    int gz1;
+                    if (useNewGTOregenPattern) {
+                        // gt oregen uses new regular pattern
+                        gx1 = ((Math.floorDiv(entity.chunkCoordX, 3) * 3) << 4) - intOffsetX;
+                        gz1 = ((Math.floorDiv(entity.chunkCoordZ, 3) * 3) << 4) - intOffsetZ;
+                    } else {
+                        // gt oregen uses old bugged pattern
+                        gx1 = (((entity.chunkCoordX < 0 ? entity.chunkCoordX - 3 : entity.chunkCoordX) / 3 * 3) << 4)
+                                - intOffsetX;
+                        gz1 = (((entity.chunkCoordZ < 0 ? entity.chunkCoordZ - 3 : entity.chunkCoordZ) / 3 * 3) << 4)
+                                - intOffsetZ;
+                        if (entity.chunkCoordX < 0) {
+                            gx1 += 16;
+                        }
+                        if (entity.chunkCoordZ < 0) {
+                            gz1 += 16;
+                        }
+                    }
                     int gx2 = gx1 + 48;
                     int gz2 = gz1 + 48;
 
