@@ -287,14 +287,7 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
                             useNewGTOregenPattern = (boolean) Class.forName("gregtech.common.GT_Worldgenerator")
                                     .getDeclaredField("useNewOregenPattern").get(null);
                         } catch (Exception ignored) {
-                            NEIClientConfig.logger.info("useNewGTOregenPattern is having problems");
                             useNewGTOregenPattern = false;
-                        }
-                        if (!useNewGTOregenPattern) {
-                            NEIClientConfig.logger.info("useNewGTOregenPattern is false");
-                        }
-                        if (useNewGTOregenPattern) {
-                            NEIClientConfig.logger.info("useNewGTOregenPattern is true");
                         }
                         hasuseNewGTOregenPatternbeenset = true;
                     }
