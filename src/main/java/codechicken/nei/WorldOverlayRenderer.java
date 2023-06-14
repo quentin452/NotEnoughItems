@@ -24,13 +24,13 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
     public static int mobOverlay = 0;
     private static byte[] mobSpawnCache;
     private static long mobOverlayUpdateTime;
-    private static boolean useNewGTOregenPattern;
-    private static boolean hasuseNewGTOregenPatternbeenset = false;
+    private static String oregenPatternName;
+    private static boolean hasOregenPatternBeenSet = false;
 
     public static void reset() {
         mobOverlay = 0;
         chunkOverlay = 0;
-        hasuseNewGTOregenPatternbeenset = false;
+        hasOregenPatternBeenSet = false;
     }
 
     @Override
@@ -282,18 +282,18 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
                         GL11.glVertex3d(x2, y2, z1 + h);
                     }
                 } else if (chunkOverlay == 3) {
-                    if (!hasuseNewGTOregenPatternbeenset) {
+                    if (!hasOregenPatternBeenSet) {
                         try {
-                            useNewGTOregenPattern = (boolean) Class.forName("gregtech.common.GT_Worldgenerator")
-                                    .getDeclaredField("useNewOregenPattern").get(null);
+                            oregenPatternName = ((Enum<?>) Class.forName("gregtech.common.GT_Worldgenerator")
+                                    .getDeclaredField("useNewOregenPattern").get(null)).name();
                         } catch (Exception ignored) {
-                            useNewGTOregenPattern = false;
+                            oregenPatternName = "AXISSYMMETRICAL";
                         }
-                        hasuseNewGTOregenPatternbeenset = true;
+                        hasOregenPatternBeenSet = true;
                     }
                     int gx1;
                     int gz1;
-                    if (useNewGTOregenPattern) {
+                    if (oregenPatternName.equals("EQUAL_SPACING")) {
                         // gt oregen uses new regular pattern
                         gx1 = ((Math.floorDiv(entity.chunkCoordX, 3) * 3) << 4) - intOffsetX;
                         gz1 = ((Math.floorDiv(entity.chunkCoordZ, 3) * 3) << 4) - intOffsetZ;
