@@ -285,7 +285,7 @@ public class WorldOverlayRenderer implements IKeyStateTracker {
                     if (!hasOregenPatternBeenSet) {
                         try {
                             oregenPatternName = ((Enum<?>) Class.forName("gregtech.common.GT_Worldgenerator")
-                                    .getDeclaredField("useNewOregenPattern").get(null)).name();
+                                    .getDeclaredField("oregenPattern").get(null)).name();
                         } catch (Exception ignored) {
                             oregenPatternName = "AXISSYMMETRICAL";
                         }
