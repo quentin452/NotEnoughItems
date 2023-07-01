@@ -165,7 +165,7 @@ public class RecipeCatalysts {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()))) {
             CSVParser csvParser = CSVFormat.EXCEL.withFirstRecordAsHeader().parse(reader);
             for (CSVRecord record : csvParser) {
-                final String handler = record.get("handler");
+                final String handler = record.get("handlerID");
                 final String modId = record.get("modId");
                 final boolean requiresMod = Boolean.parseBoolean(record.get("modRequired"));
                 final String excludedModId = record.get("excludedModId");
