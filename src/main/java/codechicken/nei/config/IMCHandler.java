@@ -135,6 +135,13 @@ public class IMCHandler {
             NEIClientConfig.logger.warn("Missing handlerID for registerCatalystInfo!");
             return;
         }
+        final String modId = tag.hasKey("modId") ? tag.getString("modId") : null;
+        final boolean requiresMod = tag.getBoolean("modRequired");
+        final String excludedModId = tag.hasKey("excludedModId") ? tag.getString("excludedModId") : null;
+
+        if (requiresMod && modId != null && !Loader.isModLoaded(modId)) return;
+        if (excludedModId != null && Loader.isModLoaded(excludedModId)) return;
+
         final String itemName = tag.getString("itemName");
         final String nbtInfo = tag.hasKey("nbtInfo") ? tag.getString("nbtInfo") : null;
         if (itemName.isEmpty()) {
@@ -170,7 +177,7 @@ public class IMCHandler {
         final String itemName = tag.getString("itemName");
         final String nbtInfo = tag.hasKey("nbtInfo") ? tag.getString("nbtInfo") : null;
         if (itemName.isEmpty()) {
-            NEIClientConfig.logger.warn(String.format("Missing itemName for registerCatalystInfo in `%s`!", handlerID));
+            NEIClientConfig.logger.warn(String.format("Missing itemName for removeCatalystInfo in `%s`!", handlerID));
             return;
         }
         final ItemStack itemStack = NEIServerUtils.getModdedItem(itemName, nbtInfo);
