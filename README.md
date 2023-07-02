@@ -143,8 +143,8 @@ Again, this needs additional metadata work, either provided by mods themselves, 
 
 (values are strings if not specified otherwise)
 
-- **handler:** id of the recipe handler for which this catalyst can be used; it's the fully-qualified handler class name in most cases
-  - example: `vazkii.botania.client.integration.nei.recipe.RecipeHandlerPureDaisy`
+- **catalystHandlerID:** identifier of the handler for which this catalyst can be used; by default, this should be the overlay identifier, or alternatively the handler identifier if the former is not defined, or `forceClassName` is true; appropriate values can be inferred from the handler information dump described in a following section
+  - example: `vazkii.botania.client.integration.nei.recipe.RecipeHandlerPureDaisy`, or `crafting`
   - *required*
 - **itemName:**, and **nbtInfo:** actual catalyst item
   - example: `Botania:specialFlower` (itemName), `{type:puredaisy}` (nbtInfo)
@@ -156,7 +156,7 @@ Again, this needs additional metadata work, either provided by mods themselves, 
 - **priority:** position of the catalyst within the list of all possible catalysts for a given recipe handler; higher priority takes precedence (integer value)
   - default: `0`
 - **minVersion:**, and **maxVersion:** only present in `catalysts.csv`, currently unused
-- **forceClassName:** traditionally, NEI used the fully-qualified handler class name, this restriction is lifted in this version of NEI, allowing handlers to specify their own ID and letting a single handler class act as multiple different handlers; this forces the catalyst to match on the handler class name; only needs to be used in rare cases; only supported in `catalysts.csv` (boolean value)
+- **forceClassName:** `catalystHandlerID` by default refers to the overlay identifier of the recipe handler and only falls back to the handler identifier if the former is undefined, so this options allows forcing matching the handler identifier even when an overlay identifier exists separately; only supported in `catalysts.csv` (boolean value)
 - **itemNotes:** ignored by NEI; this field is purely informational for development; not available via IMC
 
 #### Dumping recipe handler information for debugging
@@ -174,8 +174,8 @@ Our version of NEI adds a range of IMC messages for registering handler metadata
 The following messages are available:
 - **registerHandlerInfo:** NBT IMC message; allowed keys are specified in the handler metadata section
 - **removeHandlerInfo:** NBT IMC message; required key: `handler`, ID string of the handler to be removed (usually the fully-qualified name of the handler class)
-- **registerCatalystInfo:** NBT IMC message; allowed keys are specified in the catalyst metadata section; previously, this accepted the tag `handlerID`, which has been renamed to `handler` to unify it with the CSV column name, the old name has been deprecated
-- **removeCatalystInfo:** NBT IMC message; required keys: `handlerID` (usually the fully-qualified name of the handler class), `itemName` (optionally specify `nbtInfo` if necessary)
+- **registerCatalystInfo:** NBT IMC message; allowed keys are specified in the catalyst metadata section
+- **removeCatalystInfo:** NBT IMC message; required keys: `catalystHandlerID` ( identifier string of the handler from which the catalyst is to be removed), `itemName` (optionally specify `nbtInfo` if necessary)
 
 Here is an example of how to send the handler and catalyst metadata via IMC:
 ```java
@@ -193,7 +193,7 @@ handlerMetadata.setInteger("maxRecipesPerPage", 5);
 FMLInterModComms.sendMessage("NotEnoughItems", "registerHandlerInfo", handlerMetadata);
 
 NBTTagCompound catalystMetadata = new NBTTagCompound();
-catalystMetadata.setString("handlerID", inscriberHandler.getOverlayIdentifier());
+catalystMetadata.setString("catalystHandlerID", inscriberHandler.getOverlayIdentifier());
 catalystMetadata.setString("itemName", GameRegistry.findUniqueIdentifierFor(block));
 FMLInterModComms.sendMessage("NotEnoughItems", "registerCatalystInfo", catalystMetadata);
 ```

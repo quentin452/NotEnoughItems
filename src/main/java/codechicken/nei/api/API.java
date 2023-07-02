@@ -350,8 +350,8 @@ public class API {
      * @param priority higher priority comes first, default to 0
      */
     public static void addRecipeCatalyst(ItemStack stack, IRecipeHandler handler, int priority) {
-        String handlerID = RecipeCatalysts.getRecipeID(handler);
-        addRecipeCatalyst(stack, handlerID, priority);
+        String catalystHandlerID = RecipeCatalysts.getCatalystHandlerId(handler);
+        addRecipeCatalyst(stack, catalystHandlerID, priority);
     }
 
     /**
@@ -370,8 +370,8 @@ public class API {
      * @param handlerID recipe category identifier (see also {@link RecipeCatalysts#getRecipeID(IRecipeHandler)})
      * @param priority  higher priority comes first, default to 0
      */
-    public static void addRecipeCatalyst(ItemStack stack, String handlerID, int priority) {
-        RecipeCatalysts.addRecipeCatalyst(handlerID, new CatalystInfo(stack, priority));
+    public static void addRecipeCatalyst(ItemStack stack, String catalystHandlerID, int priority) {
+        RecipeCatalysts.addRecipeCatalyst(catalystHandlerID, new CatalystInfo(stack, priority));
     }
 
     /**
@@ -382,12 +382,12 @@ public class API {
     }
 
     public static void removeRecipeCatalyst(ItemStack stack, IRecipeHandler handler) {
-        String handlerID = RecipeCatalysts.getRecipeID(handler);
-        removeRecipeCatalyst(stack, handlerID);
+        String catalystHandlerID = RecipeCatalysts.getCatalystHandlerId(handler);
+        removeRecipeCatalyst(stack, catalystHandlerID);
     }
 
-    public static void removeRecipeCatalyst(ItemStack stack, String handlerID) {
-        RecipeCatalysts.removeRecipeCatalyst(handlerID, stack);
+    public static void removeRecipeCatalyst(ItemStack stack, String catalystHandlerID) {
+        RecipeCatalysts.removeRecipeCatalyst(catalystHandlerID, stack);
     }
 
     @Deprecated
@@ -398,9 +398,9 @@ public class API {
     }
 
     @Deprecated
-    public static void addRecipeCatalyst(List<ItemStack> stacks, String handlerID) {
+    public static void addRecipeCatalyst(List<ItemStack> stacks, String catalystHandlerID) {
         for (ItemStack stack : stacks) {
-            addRecipeCatalyst(stack, handlerID);
+            addRecipeCatalyst(stack, catalystHandlerID);
         }
     }
 
