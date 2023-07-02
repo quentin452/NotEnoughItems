@@ -1,19 +1,24 @@
 package codechicken.nei;
 
 import static codechicken.lib.gui.GuiDraw.drawRect;
+import static codechicken.lib.gui.GuiDraw.getMousePosition;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import javax.annotation.Nullable;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.shader.Framebuffer;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 
 import org.lwjgl.opengl.GL11;
@@ -22,6 +27,9 @@ import codechicken.lib.vec.Rectangle4i;
 import codechicken.nei.ItemPanel.ItemPanelSlot;
 import codechicken.nei.api.GuiInfo;
 import codechicken.nei.guihook.GuiContainerManager;
+import codechicken.nei.recipe.BookmarkRecipeId;
+import codechicken.nei.recipe.GuiCraftingRecipe;
+import codechicken.nei.recipe.GuiRecipe;
 import codechicken.nei.recipe.StackInfo;
 
 public class ItemsGrid {
@@ -244,6 +252,111 @@ public class ItemsGrid {
         }
     }
 
+    private int recipeTooltipSlotIdx = -1;
+    private Runnable recipeTooltipUpdater = null;
+    private GuiRecipe<?> recipeTooltipGui = null;
+
+    public void update() {
+        if (recipeTooltipUpdater != null) {
+            recipeTooltipUpdater.run();
+            recipeTooltipUpdater = null;
+        }
+        if (recipeTooltipGui != null) {
+            recipeTooltipGui.updateAsTooltip();
+        }
+    }
+
+    private static <T> List<T> listOrEmptyList(final List<T> listOrNull) {
+        return listOrNull == null ? Collections.emptyList() : listOrNull;
+    }
+
+    private void drawRecipeTooltip(int mousex, int mousey) {
+        ItemPanelSlot focused = getSlotMouseOver(mousex, mousey);
+        if (focused == null) {
+            recipeTooltipSlotIdx = -1;
+            recipeTooltipGui = null;
+            return;
+        }
+        final List<Integer> mask = getMask();
+
+        int slotIdx = -1;
+        for (int i = 0; i < mask.size(); i++) {
+            if (mask.get(i) == null) {
+                continue;
+            }
+            if (focused.slotIndex != mask.get(i)) {
+                continue;
+            }
+            slotIdx = i;
+            break;
+        }
+        if (slotIdx == -1) {
+            recipeTooltipSlotIdx = -1;
+            recipeTooltipGui = null;
+            return;
+        }
+
+        final Point mouseover = getMousePosition();
+        final ItemPanelSlot panelSlot = ItemPanels.bookmarkPanel.getSlotMouseOver(mouseover.x, mouseover.y);
+        final BookmarkRecipeId recipeId;
+        if (panelSlot != null) {
+            recipeId = ItemPanels.bookmarkPanel.getBookmarkRecipeId(panelSlot.slotIndex);
+        } else {
+            recipeId = ItemPanels.bookmarkPanel.getBookmarkRecipeId(focused.item);
+        }
+        if (recipeId == null) {
+            return;
+        }
+
+        if (slotIdx != recipeTooltipSlotIdx) {
+            recipeTooltipSlotIdx = slotIdx;
+            recipeTooltipGui = null;
+            recipeTooltipUpdater = () -> {
+                recipeTooltipGui = GuiCraftingRecipe.createRecipeGui("item", false, false, false, focused.item);
+                if (recipeTooltipGui != null) {
+                    recipeTooltipGui.limitToOneRecipe();
+                    recipeTooltipGui.initGui(true);
+                    recipeTooltipGui.guiTop = 0;
+                    recipeTooltipGui.guiLeft = 0;
+                }
+            };
+        }
+        if (recipeTooltipGui == null) {
+            return;
+        }
+
+        GL11.glPushMatrix();
+        GL11.glTranslatef(
+                mousex,
+                (mousey > height / 2) ? mousey - recipeTooltipGui.getHeightAsWidget() : mousey + 32,
+                100);
+
+        final Minecraft mc = Minecraft.getMinecraft();
+        final GuiContainer gui;
+        if (mc.currentScreen instanceof GuiRecipe) {
+            gui = ((GuiRecipe<?>) mc.currentScreen).firstGui;
+        } else if (mc.currentScreen instanceof GuiContainer) {
+            gui = (GuiContainer) mc.currentScreen;
+        } else {
+            gui = null;
+        }
+        recipeTooltipGui.drawGuiContainerBackgroundLayer(0.0f, -100, -100);
+        if (recipeTooltipGui.slotcontainer != null) {
+            @SuppressWarnings("unchecked")
+            List<Slot> slots = (List<Slot>) recipeTooltipGui.slotcontainer.inventorySlots;
+            for (Slot slot : slots) {
+                if (slot != null && slot.getStack() != null) {
+                    GuiContainerManager.drawItem(slot.xDisplayPosition, slot.yDisplayPosition, slot.getStack());
+                }
+            }
+        }
+        recipeTooltipGui.drawGuiContainerForegroundLayer(-100, -100);
+        for (GuiButton btn : recipeTooltipGui.getOverlayButtons()) {
+            btn.drawButton(mc, -100, -100);
+        }
+        GL11.glPopMatrix();
+    }
+
     protected void drawSlotOutline(@Nullable ItemPanelSlot focused, int slotIdx, Rectangle4i rect) {
         if (focused != null && focused.slotIndex == slotIdx) {
             drawRect(rect.x, rect.y, rect.w, rect.h, 0xee555555); // highlight
@@ -326,6 +439,11 @@ public class ItemsGrid {
         } else {
             drawSlotOutlines(mousex, mousey);
             drawItems();
+        }
+        try {
+            drawRecipeTooltip(mousex, mousey);
+        } catch (Exception e) {
+            NEIClientConfig.logger.warn("Cannot draw recipe tooltip", e);
         }
     }
 
