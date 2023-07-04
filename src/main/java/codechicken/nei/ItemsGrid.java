@@ -258,6 +258,7 @@ public class ItemsGrid {
     }
 
     private int recipeTooltipSlotIdx = -1;
+    private int recipeTooltipLines = 2;
     private Runnable recipeTooltipUpdater = null;
     private GuiRecipe<?> recipeTooltipGui = null;
 
@@ -276,6 +277,7 @@ public class ItemsGrid {
     }
 
     private void drawRecipeTooltip(int mousex, int mousey) {
+        final Minecraft mc = Minecraft.getMinecraft();
         ItemPanelSlot focused = getSlotMouseOver(mousex, mousey);
         if (focused == null) {
             recipeTooltipSlotIdx = -1;
@@ -324,6 +326,12 @@ public class ItemsGrid {
                     recipeTooltipGui.guiTop = 0;
                     recipeTooltipGui.guiLeft = 0;
                 }
+                recipeTooltipLines = 2;
+                if (focused.item != null && mc.currentScreen instanceof GuiContainer) {
+                    final List<String> tooltip = GuiContainerManager
+                            .itemDisplayNameMultiline(focused.item, (GuiContainer) mc.currentScreen, true);
+                    recipeTooltipLines = tooltip.size();
+                }
             };
         }
         if (recipeTooltipGui == null) {
@@ -331,12 +339,14 @@ public class ItemsGrid {
         }
 
         GL11.glPushMatrix();
-        GL11.glTranslatef(
-                mousex,
-                (mousey > height / 2) ? mousey - recipeTooltipGui.getHeightAsWidget() : mousey + 32,
-                100);
+        final float tooltipYOffset;
+        if (mousey > height / 2) {
+            tooltipYOffset = mousey - recipeTooltipGui.getHeightAsWidget() + 8;
+        } else {
+            tooltipYOffset = mousey - 7 + (recipeTooltipLines * 10);
+        }
+        GL11.glTranslatef(mousex, tooltipYOffset, 100);
 
-        final Minecraft mc = Minecraft.getMinecraft();
         final GuiContainer gui;
         if (mc.currentScreen instanceof GuiRecipe) {
             gui = ((GuiRecipe<?>) mc.currentScreen).firstGui;
