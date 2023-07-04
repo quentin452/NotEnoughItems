@@ -51,6 +51,7 @@ public class ItemsGrid {
 
     protected int rows;
     protected int columns;
+    protected boolean showRecipeTooltips = false;
 
     protected boolean[] invalidSlotMap;
 
@@ -156,6 +157,10 @@ public class ItemsGrid {
 
     protected void onGridChanged() {
         refreshBuffer = true;
+    }
+
+    public void setShowRecipeTooltips(boolean show) {
+        this.showRecipeTooltips = show;
     }
 
     public void refresh(GuiContainer gui) {
@@ -440,10 +445,12 @@ public class ItemsGrid {
             drawSlotOutlines(mousex, mousey);
             drawItems();
         }
-        try {
-            drawRecipeTooltip(mousex, mousey);
-        } catch (Exception e) {
-            NEIClientConfig.logger.warn("Cannot draw recipe tooltip", e);
+        if (NEIClientConfig.showRecipeTooltips() && showRecipeTooltips) {
+            try {
+                drawRecipeTooltip(mousex, mousey);
+            } catch (Exception e) {
+                NEIClientConfig.logger.warn("Cannot draw recipe tooltip", e);
+            }
         }
     }
 
