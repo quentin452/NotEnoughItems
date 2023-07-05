@@ -110,7 +110,7 @@ To enable these new capabilities, NEI has to be given additional metadata to mak
 
 (values are strings if not specified otherwise)
 
-- **handler:** handler ID, usually the fully-qualified class name of the recipe handler (including package name); can differ to provide multiple handlers from a single class
+- **handlerID:** handler identifier, usually the fully-qualified class name of the recipe handler (including package name); can differ to provide multiple handlers from a single class; check the handler dump described in a section below
   - example: `vazkii.botania.client.integration.nei.recipe.RecipeHandlerPureDaisy`
   - *required*
 - **modName:** display name of the mod to which the recipe handler belongs to
@@ -173,7 +173,7 @@ Our version of NEI adds a range of IMC messages for registering handler metadata
 
 The following messages are available:
 - **registerHandlerInfo:** NBT IMC message; allowed keys are specified in the handler metadata section
-- **removeHandlerInfo:** NBT IMC message; required key: `handler`, ID string of the handler to be removed (usually the fully-qualified name of the handler class)
+- **removeHandlerInfo:** NBT IMC message; required key: `handlerID`, identifier string of the handler to be removed
 - **registerCatalystInfo:** NBT IMC message; allowed keys are specified in the catalyst metadata section
 - **removeCatalystInfo:** NBT IMC message; required keys: `catalystHandlerID` ( identifier string of the handler from which the catalyst is to be removed), `itemName` (optionally specify `nbtInfo` if necessary)
 
@@ -183,7 +183,7 @@ NEIInscriberRecipeHandler inscriberHandler = new NEIInscriberRecipeHandler();
 API.registerRecipeHandler(inscriberHandler);
 
 NBTTagCompound handlerMetadata = new NBTTagCompound();
-handlerMetadata.setString("handler", inscriberHandler.getHandlerId());
+handlerMetadata.setString("handlerID", inscriberHandler.getHandlerId());
 handlerMetadata.setString("modName", MOD_NAME);
 handlerMetadata.setString("modId", MOD_ID);
 handlerMetadata.setBoolean("modRequired", true);
