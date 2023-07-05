@@ -346,7 +346,7 @@ public class API {
      * category.
      * 
      * @param stack    the ingredient that can craft recipes (like a furnace or crafting table)
-     * @param handler  the recipe category handled by the ingredient
+     * @param handler  the handler that shows the ingredient's recipes
      * @param priority higher priority comes first, default to 0
      */
     public static void addRecipeCatalyst(ItemStack stack, IRecipeHandler handler, int priority) {
@@ -366,9 +366,10 @@ public class API {
      * Recipes) Allows players to see what ingredient they need to craft in order to make recipes from a recipe
      * category.
      * 
-     * @param stack     the ingredient that can craft recipes (like a furnace or crafting table)
-     * @param handlerID recipe category identifier (see also {@link RecipeCatalysts#getRecipeID(IRecipeHandler)})
-     * @param priority  higher priority comes first, default to 0
+     * @param stack             the ingredient that can craft recipes (like a furnace or crafting table)
+     * @param catalystHandlerID catalyst handler identifier (see
+     *                          {@link RecipeCatalysts#getCatalystHandlerId(IRecipeHandler)})
+     * @param priority          higher priority comes first, default to 0
      */
     public static void addRecipeCatalyst(ItemStack stack, String catalystHandlerID, int priority) {
         RecipeCatalysts.addRecipeCatalyst(catalystHandlerID, new CatalystInfo(stack, priority));
