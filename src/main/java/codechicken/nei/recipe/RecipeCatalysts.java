@@ -61,7 +61,7 @@ public class RecipeCatalysts {
     }
 
     public static List<PositionedStack> getRecipeCatalysts(IRecipeHandler handler) {
-        return getRecipeCatalysts(getRecipeID(handler));
+        return getRecipeCatalysts(getCatalystHandlerId(handler));
     }
 
     public static List<PositionedStack> getRecipeCatalysts(String catalystHandlerID) {
@@ -72,7 +72,7 @@ public class RecipeCatalysts {
     }
 
     public static boolean containsCatalyst(IRecipeHandler handler, ItemStack candidate) {
-        return containsCatalyst(getRecipeID(handler), candidate);
+        return containsCatalyst(getCatalystHandlerId(handler), candidate);
     }
 
     public static boolean containsCatalyst(String catalystHandlerID, ItemStack candidate) {
@@ -197,7 +197,7 @@ public class RecipeCatalysts {
                         if (forceClassName) {
                             forceClassNameList.add(catalystHandlerID);
                         }
-                        handlerID = getRecipeID((IRecipeHandler) object);
+                        handlerID = getCatalystHandlerId((IRecipeHandler) object);
                     } else {
                         handlerID = catalystHandlerID;
                     }
@@ -265,10 +265,13 @@ public class RecipeCatalysts {
     }
 
     /**
-     * Force using {@link IRecipeHandler#getHandlerId()} if specified in catalysts.csv. In other words, refuse to share
-     * catalystHandlerID defined in {@link TemplateRecipeHandler#getOverlayIdentifier()}.
+     * Computes the catalyst handler identifier for matching a catalyst to its corresponding recipes.
+     *
+     * @return defaults to {@link IRecipeHandler#getOverlayIdentifier()}, but falls back to the results of
+     *         {@link IRecipeHandler#getHandlerId()} if the former is null. If forceClassName is enabled in
+     *         catalysts.csv, {@link IRecipeHandler#getHandlerId()} is returned always.
      */
-    public static String getRecipeID(IRecipeHandler handler) {
+    public static String getCatalystHandlerId(IRecipeHandler handler) {
         if (forceClassNameList.stream().anyMatch(s -> s.equals(handler.getHandlerId()))) {
             return handler.getHandlerId();
         }
