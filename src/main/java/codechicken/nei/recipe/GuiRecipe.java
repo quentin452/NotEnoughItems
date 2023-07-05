@@ -788,7 +788,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         // reduce the vertical shift here to 16px instead of 32px.
         return new Point(
                 5,
-                (isHeightHackApplied ? 16 : 32) - (limitToOneRecipe ? 25 : 0) + yShift + ((recipe % getRecipesPerPage()) * handlerInfo.getHeight()));        return new Point(5, 32 + yShift + ((recipe % getRecipesPerPage()) * handlerInfo.getHeight()));
+                (isHeightHackApplied ? 16 : 32) - (limitToOneRecipe ? 25 : 0) + yShift + ((recipe % getRecipesPerPage()) * handlerInfo.getHeight()));
     }
 
     public abstract ArrayList<H> getCurrentRecipeHandlers();
