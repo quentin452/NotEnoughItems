@@ -231,8 +231,17 @@ public abstract class GuiRecipeTab extends Widget {
         }
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()))) {
             CSVParser csvParser = CSVFormat.EXCEL.withFirstRecordAsHeader().parse(reader);
+            if (csvParser.getHeaderNames().contains("handler")) {
+                NEIClientConfig.logger.warn("Found column 'handler' in catalysts.csv. Please rename to 'handlerID'");
+            }
             for (CSVRecord record : csvParser) {
-                final String handlerID = record.get("handlerID");
+                final String handlerID;
+                if (record.isMapped("handler")) {
+                    handlerID = record.get("handler");
+                } else {
+                    handlerID = record.get("handlerID");
+                }
+
                 final String modName = record.get("modName");
                 final String modId = record.get("modId");
                 final boolean requiresMod = Boolean.parseBoolean(record.get("modRequired"));

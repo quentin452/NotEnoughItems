@@ -164,8 +164,17 @@ public class RecipeCatalysts {
         }
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(url.openStream()))) {
             CSVParser csvParser = CSVFormat.EXCEL.withFirstRecordAsHeader().parse(reader);
+            if (csvParser.getHeaderNames().contains("handlerID")) {
+                NEIClientConfig.logger
+                        .warn("Found column 'handlerID' in catalysts.csv. Please rename to 'catalystHandlerID'");
+            }
             for (CSVRecord record : csvParser) {
-                final String catalystHandlerID = record.get("catalystHandlerID");
+                final String catalystHandlerID;
+                if (record.isMapped("handlerID")) {
+                    catalystHandlerID = record.get("handlerID");
+                } else {
+                    catalystHandlerID = record.get("catalystHandlerID");
+                }
                 final String modId = record.get("modId");
                 final boolean requiresMod = Boolean.parseBoolean(record.get("modRequired"));
                 final String excludedModId = record.get("excludedModId");
