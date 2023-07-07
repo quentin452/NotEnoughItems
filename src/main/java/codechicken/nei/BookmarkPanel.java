@@ -84,6 +84,10 @@ public class BookmarkPanel extends PanelWidget {
         protected boolean[] todoSpaces;
         protected int todoItemsCount = 0;
 
+        public BookmarkGrid() {
+            this.setShowRecipeTooltips(true);
+        }
+
         public void setViewMode(BookmarkViewMode mode) {
             if (viewMode == mode) {
                 return;
