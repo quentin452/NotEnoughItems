@@ -172,6 +172,11 @@ public abstract class PanelWidget extends Widget {
     }
 
     @Override
+    public void update() {
+        grid.update();
+    }
+
+    @Override
     public void draw(int mousex, int mousey) {
         grid.draw(mousex, mousey);
     }
