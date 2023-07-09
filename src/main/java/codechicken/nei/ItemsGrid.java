@@ -343,7 +343,7 @@ public class ItemsGrid {
         if (mousey > height / 2) {
             tooltipYOffset = mousey - recipeTooltipGui.getHeightAsWidget() + 8;
         } else {
-            tooltipYOffset = mousey - 7 + (recipeTooltipLines * 10);
+            tooltipYOffset = mousey + 3 + (recipeTooltipLines * 10);
         }
         GL11.glTranslatef(mousex, tooltipYOffset, 100);
 

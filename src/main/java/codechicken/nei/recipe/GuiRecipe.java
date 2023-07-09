@@ -146,10 +146,12 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
         private final int trueHeight;
         private final int trueGuiTop;
+        private final GuiScreen trueGui;
 
         private HeightHack() {
             trueHeight = height;
             trueGuiTop = guiTop;
+            trueGui = Minecraft.getMinecraft().currentScreen;
 
             isHeightHackApplied = NEIClientConfig.heightHackHandlerRegex.stream()
                     .map(pattern -> pattern.matcher(handler.getHandlerId())).anyMatch(Matcher::matches);
@@ -174,6 +176,12 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
                 // guiWidth (the x-value of the left edge of the NEI recipe screen). So if we wanted to override width
                 // as well, we'd do this:
                 // width = (2 * guiWidth) + 176;
+
+                // Recipe handlers may assume the current screen is the GuiRecipe object, which is not the case in
+                // recipe tooltips drawn on the bookmarks panel with the main inventory open.
+                if (limitToOneRecipe) {
+                    Minecraft.getMinecraft().currentScreen = GuiRecipe.this;
+                }
             }
         }
 
@@ -181,6 +189,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         public void close() {
             guiTop = trueGuiTop;
             height = trueHeight;
+            Minecraft.getMinecraft().currentScreen = trueGui;
             isHeightHackApplied = false;
         }
     }
@@ -243,15 +252,14 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
         final int recipesPerPage = getRecipesPerPage();
         overlayButtons = new GuiButton[recipesPerPage];
-        final int xOffset = limitToOneRecipe ? (xSize / 2) : (width / 2);
-        final int yOffset = limitToOneRecipe ? -14 : guiTop;
+        final int xOffset = limitToOneRecipe ? ((xSize / 2) - 2) : (width / 2);
         final String overlayKeyName = NEIClientConfig
                 .getKeyName(NEIClientConfig.getKeyBinding("gui.overlay_use"), true);
         for (int i = 0; i < recipesPerPage; i++) {
             overlayButtons[i] = new GuiNEIButton(
                     OVERLAY_BUTTON_ID_START + i,
                     xOffset + 65,
-                    yOffset + 16 + (handlerInfo.getHeight() * (i + 1)) - 2,
+                    16 + (handlerInfo.getHeight() * (i + 1)) - 2,
                     buttonWidth,
                     buttonHeight,
                     "?");
@@ -740,7 +748,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     }
 
     public int getHeightAsWidget() {
-        return (handlerInfo == null) ? ySize : (handlerInfo.getHeight() + 40);
+        return (handlerInfo == null) ? ySize : (handlerInfo.getHeight() + 56);
     }
 
     @Override
