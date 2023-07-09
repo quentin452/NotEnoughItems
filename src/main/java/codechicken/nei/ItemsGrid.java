@@ -340,7 +340,7 @@ public class ItemsGrid {
 
         GL11.glPushMatrix();
         final float tooltipYOffset;
-        if (mousey > height / 2) {
+        if (mousey - marginTop > height / 2) {
             tooltipYOffset = mousey - recipeTooltipGui.getHeightAsWidget() + 8;
         } else {
             tooltipYOffset = mousey + 3 + (recipeTooltipLines * 10);
