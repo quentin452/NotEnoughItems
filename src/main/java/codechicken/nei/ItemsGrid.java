@@ -345,7 +345,7 @@ public class ItemsGrid {
         } else {
             tooltipYOffset = mousey + 3 + (recipeTooltipLines * 10);
         }
-        GL11.glTranslatef(mousex, tooltipYOffset, 100);
+        GL11.glTranslatef(mousex, tooltipYOffset, 500);
 
         final GuiContainer gui;
         if (mc.currentScreen instanceof GuiRecipe) {
@@ -455,6 +455,9 @@ public class ItemsGrid {
             drawSlotOutlines(mousex, mousey);
             drawItems();
         }
+    }
+
+    public void postDrawTooltips(int mousex, int mousey) {
         if (NEIClientConfig.showRecipeTooltips() && showRecipeTooltips) {
             try {
                 drawRecipeTooltip(mousex, mousey);

@@ -514,6 +514,8 @@ public class GuiContainerManager {
         if (tooltip.size() > 0) tooltip.set(0, tooltip.get(0) + GuiDraw.TOOLTIP_LINESPACE); // add space after 'title'
 
         drawPagedTooltip(font, mousex + 12, mousey - 12, tooltip);
+
+        for (IContainerDrawHandler drawHandler : drawHandlers) drawHandler.postRenderTooltips(window, mousex, mousey);
     }
 
     private static int tooltipPage;

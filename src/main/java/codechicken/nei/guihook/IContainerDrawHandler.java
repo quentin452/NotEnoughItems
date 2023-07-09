@@ -31,6 +31,16 @@ public interface IContainerDrawHandler {
     public void postRenderObjects(GuiContainer gui, int mousex, int mousey);
 
     /**
+     * Use this to draw things that should be drawn just after vanilla slot tooltips, on top of buttons and other
+     * usually always-on-top widgets.
+     *
+     * @param gui    An instance of the currentscreen
+     * @param mousex The x position of the mouse in pixels from left
+     * @param mousey The y position of the mouse in pixels from top
+     */
+    default void postRenderTooltips(GuiContainer gui, int mousex, int mousey) {}
+
+    /**
      * Render something over a slot before the item in the slot.
      * 
      * @param gui  An instance of the currentscreen

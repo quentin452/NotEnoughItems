@@ -191,6 +191,11 @@ public abstract class PanelWidget extends Widget {
     }
 
     @Override
+    public void postDrawTooltips(int mx, int my) {
+        grid.postDrawTooltips(mx, my);
+    }
+
+    @Override
     public void mouseDragged(int mousex, int mousey, int button, long heldTime) {
         if (mouseDownSlot >= 0 && draggedStack == null
                 && NEIClientUtils.getHeldItem() == null
