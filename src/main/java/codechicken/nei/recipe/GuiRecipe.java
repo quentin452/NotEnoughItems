@@ -176,12 +176,12 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
                 // guiWidth (the x-value of the left edge of the NEI recipe screen). So if we wanted to override width
                 // as well, we'd do this:
                 // width = (2 * guiWidth) + 176;
+            }
 
-                // Recipe handlers may assume the current screen is the GuiRecipe object, which is not the case in
-                // recipe tooltips drawn on the bookmarks panel with the main inventory open.
-                if (limitToOneRecipe) {
-                    Minecraft.getMinecraft().currentScreen = GuiRecipe.this;
-                }
+            // Recipe handlers may assume the current screen is the GuiRecipe object, which is not the case in
+            // recipe tooltips drawn on the bookmarks panel with the main inventory open.
+            if (limitToOneRecipe) {
+                Minecraft.getMinecraft().currentScreen = GuiRecipe.this;
             }
         }
 
