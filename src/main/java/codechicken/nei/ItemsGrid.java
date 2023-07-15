@@ -16,12 +16,14 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.shader.Framebuffer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 
 import codechicken.lib.vec.Rectangle4i;
 import codechicken.nei.ItemPanel.ItemPanelSlot;
@@ -352,6 +354,9 @@ public class ItemsGrid {
         }
         recipeTooltipGui.drawGuiContainerBackgroundLayer(0.0f, -100, -100);
         if (recipeTooltipGui.slotcontainer != null) {
+            GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+            RenderHelper.enableGUIStandardItemLighting();
+            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
             @SuppressWarnings("unchecked")
             List<Slot> slots = (List<Slot>) recipeTooltipGui.slotcontainer.inventorySlots;
             for (Slot slot : slots) {
@@ -359,6 +364,7 @@ public class ItemsGrid {
                     GuiContainerManager.drawItem(slot.xDisplayPosition, slot.yDisplayPosition, slot.getStack());
                 }
             }
+            GL11.glPopAttrib();
         }
         recipeTooltipGui.drawGuiContainerForegroundLayer(-100, -100);
         for (GuiButton btn : recipeTooltipGui.getOverlayButtons()) {
