@@ -151,7 +151,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         private HeightHack() {
             trueHeight = height;
             trueGuiTop = guiTop;
-            trueGui = Minecraft.getMinecraft().currentScreen;
+            trueGui = NEIClientUtils.mc().currentScreen;
 
             isHeightHackApplied = NEIClientConfig.heightHackHandlerRegex.stream()
                     .map(pattern -> pattern.matcher(handler.getHandlerId())).anyMatch(Matcher::matches);
@@ -181,7 +181,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
             // Recipe handlers may assume the current screen is the GuiRecipe object, which is not the case in
             // recipe tooltips drawn on the bookmarks panel with the main inventory open.
             if (limitToOneRecipe) {
-                Minecraft.getMinecraft().currentScreen = GuiRecipe.this;
+                NEIClientUtils.mc().currentScreen = GuiRecipe.this;
             }
         }
 
@@ -189,7 +189,13 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         public void close() {
             guiTop = trueGuiTop;
             height = trueHeight;
-            Minecraft.getMinecraft().currentScreen = trueGui;
+
+            // Only restore currentScreen if it hasn't been altered by a recipe handler (for example through
+            // Minecraft#displayGuiScreen).
+            if (limitToOneRecipe && NEIClientUtils.mc().currentScreen == GuiRecipe.this) {
+                NEIClientUtils.mc().currentScreen = trueGui;
+            }
+
             isHeightHackApplied = false;
         }
     }
@@ -207,7 +213,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
             super.initGui();
         } else {
             this.guiLeft = (this.width - this.xSize) / 2;
-            this.mc = Minecraft.getMinecraft();
+            this.mc = NEIClientUtils.mc();
             this.fontRendererObj = mc.fontRenderer;
             ScaledResolution scaledresolution = new ScaledResolution(
                     this.mc,
