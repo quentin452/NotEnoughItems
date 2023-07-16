@@ -139,13 +139,14 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
      *
      * <p>
      * New and old mods often assume that the handler is only drawn when {@link GuiRecipe} is the currently active
-     * screen in {@link Minecraft}. This is no longer true since the addition of recipe tooltips which need to render
-     * the recipe in other containers on mouse hover, this class temporarily switches the active screen to {@code this}
-     * while rendering them to avoid ClassCastExceptions and other similar crashes.
+     * screen in {@link net.minecraft.client.Minecraft}. This is no longer true since the addition of recipe tooltips
+     * which need to render the recipe in other containers on mouse hover, this class temporarily switches the active
+     * screen to {@code this} while rendering them to avoid ClassCastExceptions and other similar crashes.
      *
      * <p>
      * This class is an {@link AutoCloseable} so that it can be used with try-with-resources, which will ensure that
-     * {@link #height} and {@link Minecraft#currentScreen} is returned to the correct value afterwards.
+     * {@link #height} and {@link net.minecraft.client.Minecraft#currentScreen} is returned to the correct value
+     * afterwards.
      */
     private class CompatibilityHacks implements AutoCloseable {
 
@@ -156,7 +157,6 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         private CompatibilityHacks() {
             trueHeight = height;
             trueGuiTop = guiTop;
-            trueGui = NEIClientUtils.mc().currentScreen;
 
             isHeightHackApplied = NEIClientConfig.heightHackHandlerRegex.stream()
                     .map(pattern -> pattern.matcher(handler.getHandlerId())).anyMatch(Matcher::matches);
@@ -185,6 +185,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
             // Recipe handlers may assume the current screen is the GuiRecipe object, which is not the case in
             // recipe tooltips drawn on the bookmarks panel with the main inventory open.
+            trueGui = NEIClientUtils.mc().currentScreen;
             if (limitToOneRecipe) {
                 NEIClientUtils.mc().currentScreen = GuiRecipe.this;
             }
