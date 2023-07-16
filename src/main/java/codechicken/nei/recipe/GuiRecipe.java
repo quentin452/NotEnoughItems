@@ -265,13 +265,14 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         final int recipesPerPage = getRecipesPerPage();
         overlayButtons = new GuiButton[recipesPerPage];
         final int xOffset = limitToOneRecipe ? ((xSize / 2) - 2) : (width / 2);
+        final int yOffset = limitToOneRecipe ? 0 : guiTop - 18;
         final String overlayKeyName = NEIClientConfig
                 .getKeyName(NEIClientConfig.getKeyBinding("gui.overlay_use"), true);
         for (int i = 0; i < recipesPerPage; i++) {
             overlayButtons[i] = new GuiNEIButton(
                     OVERLAY_BUTTON_ID_START + i,
                     xOffset + 65,
-                    16 + (handlerInfo.getHeight() * (i + 1)) - 2,
+                    yOffset + getRecipePosition(i).y + handlerInfo.getHeight(),
                     buttonWidth,
                     buttonHeight,
                     "?");
