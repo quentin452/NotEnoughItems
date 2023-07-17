@@ -356,7 +356,10 @@ public class ItemsGrid {
         } else {
             gui = null;
         }
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        RenderHelper.disableStandardItemLighting();
         recipeTooltipGui.drawGuiContainerBackgroundLayer(0.0f, -100, -100);
+        GL11.glPopAttrib();
         if (recipeTooltipGui.slotcontainer != null) {
             GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
             RenderHelper.enableGUIStandardItemLighting();
