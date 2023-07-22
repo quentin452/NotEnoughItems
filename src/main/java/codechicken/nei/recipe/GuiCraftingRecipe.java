@@ -105,6 +105,7 @@ public class GuiCraftingRecipe extends GuiRecipe<ICraftingHandler> {
 
     public static void registerRecipeHandler(ICraftingHandler handler) {
         final String handlerId = handler.getHandlerId();
+
         if (craftinghandlers.stream().anyMatch(h -> h.getHandlerId().equals(handlerId))
                 || serialCraftingHandlers.stream().anyMatch(h -> h.getHandlerId().equals(handlerId)))
             return;
