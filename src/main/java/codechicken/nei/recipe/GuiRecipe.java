@@ -13,7 +13,6 @@ import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
@@ -108,7 +107,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
     /**
      * This will only be true iff height hacking has been configured for the current recipe handler AND we are currently
-     * within the scope of an active {@link HeightHack} instance.
+     * within the scope of an active {@link CompatibilityHacks} instance.
      */
     private boolean isHeightHackApplied = false;
 
@@ -139,19 +138,25 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
      * property's value so that these old mods' calculations return the correct value for the new height.
      *
      * <p>
+     * New and old mods often assume that the handler is only drawn when {@link GuiRecipe} is the currently active
+     * screen in {@link net.minecraft.client.Minecraft}. This is no longer true since the addition of recipe tooltips
+     * which need to render the recipe in other containers on mouse hover, this class temporarily switches the active
+     * screen to {@code this} while rendering them to avoid ClassCastExceptions and other similar crashes.
+     *
+     * <p>
      * This class is an {@link AutoCloseable} so that it can be used with try-with-resources, which will ensure that
-     * {@link #height} is returned to the correct value afterwards.
+     * {@link #height} and {@link net.minecraft.client.Minecraft#currentScreen} is returned to the correct value
+     * afterwards.
      */
-    private class HeightHack implements AutoCloseable {
+    private class CompatibilityHacks implements AutoCloseable {
 
         private final int trueHeight;
         private final int trueGuiTop;
         private final GuiScreen trueGui;
 
-        private HeightHack() {
+        private CompatibilityHacks() {
             trueHeight = height;
             trueGuiTop = guiTop;
-            trueGui = Minecraft.getMinecraft().currentScreen;
 
             isHeightHackApplied = NEIClientConfig.heightHackHandlerRegex.stream()
                     .map(pattern -> pattern.matcher(handler.getHandlerId())).anyMatch(Matcher::matches);
@@ -176,12 +181,13 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
                 // guiWidth (the x-value of the left edge of the NEI recipe screen). So if we wanted to override width
                 // as well, we'd do this:
                 // width = (2 * guiWidth) + 176;
+            }
 
-                // Recipe handlers may assume the current screen is the GuiRecipe object, which is not the case in
-                // recipe tooltips drawn on the bookmarks panel with the main inventory open.
-                if (limitToOneRecipe) {
-                    Minecraft.getMinecraft().currentScreen = GuiRecipe.this;
-                }
+            // Recipe handlers may assume the current screen is the GuiRecipe object, which is not the case in
+            // recipe tooltips drawn on the bookmarks panel with the main inventory open.
+            trueGui = NEIClientUtils.mc().currentScreen;
+            if (limitToOneRecipe) {
+                NEIClientUtils.mc().currentScreen = GuiRecipe.this;
             }
         }
 
@@ -189,7 +195,13 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         public void close() {
             guiTop = trueGuiTop;
             height = trueHeight;
-            Minecraft.getMinecraft().currentScreen = trueGui;
+
+            // Only restore currentScreen if it hasn't been altered by a recipe handler (for example through
+            // Minecraft#displayGuiScreen).
+            if (limitToOneRecipe && NEIClientUtils.mc().currentScreen == GuiRecipe.this) {
+                NEIClientUtils.mc().currentScreen = trueGui;
+            }
+
             isHeightHackApplied = false;
         }
     }
@@ -207,7 +219,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
             super.initGui();
         } else {
             this.guiLeft = (this.width - this.xSize) / 2;
-            this.mc = Minecraft.getMinecraft();
+            this.mc = NEIClientUtils.mc();
             this.fontRendererObj = mc.fontRenderer;
             ScaledResolution scaledresolution = new ScaledResolution(
                     this.mc,
@@ -253,13 +265,14 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         final int recipesPerPage = getRecipesPerPage();
         overlayButtons = new GuiButton[recipesPerPage];
         final int xOffset = limitToOneRecipe ? ((xSize / 2) - 2) : (width / 2);
+        final int yOffset = limitToOneRecipe ? 0 : guiTop - 18;
         final String overlayKeyName = NEIClientConfig
                 .getKeyName(NEIClientConfig.getKeyBinding("gui.overlay_use"), true);
         for (int i = 0; i < recipesPerPage; i++) {
             overlayButtons[i] = new GuiNEIButton(
                     OVERLAY_BUTTON_ID_START + i,
                     xOffset + 65,
-                    16 + (handlerInfo.getHeight() * (i + 1)) - 2,
+                    yOffset + getRecipePosition(i).y + handlerInfo.getHeight(),
                     buttonWidth,
                     buttonHeight,
                     "?");
@@ -389,7 +402,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         }
         if (GuiContainerManager.getManager(this).lastKeyTyped(i, c)) return;
 
-        try (HeightHack heightHack = new HeightHack()) {
+        try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
             for (int recipe : getRecipeIndices()) if (handler.keyTyped(this, c, i, recipe)) return;
         }
 
@@ -411,7 +424,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
     @Override
     protected void mouseClicked(int x, int y, int button) {
-        try (HeightHack heightHack = new HeightHack()) {
+        try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
             for (int recipe : getRecipeIndices()) if (handler.mouseClicked(this, button, recipe)) return;
         }
 
@@ -488,7 +501,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
     @Override
     public List<String> handleTooltip(GuiContainer gui, int mousex, int mousey, List<String> currenttip) {
-        try (HeightHack heightHack = new HeightHack()) {
+        try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
             for (int i : getRecipeIndices()) currenttip = handler.handleTooltip(this, currenttip, i);
         }
         recipeTabs.handleTooltip(mousex, mousey, currenttip);
@@ -498,7 +511,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     @Override
     public List<String> handleItemTooltip(GuiContainer gui, ItemStack stack, int mousex, int mousey,
             List<String> currenttip) {
-        try (HeightHack heightHack = new HeightHack()) {
+        try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
             for (int i : getRecipeIndices()) currenttip = handler.handleItemTooltip(this, stack, currenttip, i);
         }
 
@@ -656,7 +669,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
         GL11.glPushMatrix();
         GL11.glTranslatef(5, 32 - ySkip + yShift, 0);
-        try (HeightHack heightHack = new HeightHack()) {
+        try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
             for (int i = page * recipesPerPage; i < handler.numRecipes() && i < (page + 1) * recipesPerPage; i++) {
                 handler.drawForeground(i);
                 if (drawItemPresence && (isMouseOverOverlayButton(i - page * recipesPerPage) || limitToOneRecipe)
@@ -711,7 +724,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
         GL11.glPushMatrix();
         GL11.glTranslatef(guiLeft + 5, guiTop - ySkip + 32 + yShift, 0);
-        try (HeightHack heightHack = new HeightHack()) {
+        try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
             for (int i = page * recipesPerPage; i < handler.numRecipes() && i < (page + 1) * recipesPerPage; i++) {
                 handler.drawBackground(i);
                 GL11.glTranslatef(0, handlerInfo.getHeight(), 0);
