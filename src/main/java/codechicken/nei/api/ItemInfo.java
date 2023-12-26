@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import fr.iamacat.optimizationsandtweaks.utils.agrona.collections.Object2ObjectHashMap;
 import net.minecraft.block.Block;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.creativetab.CreativeTabs;
@@ -84,7 +85,7 @@ public class ItemInfo {
     public static final ArrayListMultimap<Block, IHighlightHandler> highlightIdentifiers = ArrayListMultimap.create();
     public static final HashSet<Class<? extends Slot>> fastTransferExemptions = new HashSet<>();
 
-    public static final HashMap<Item, String> itemOwners = new HashMap<>();
+    public static final Object2ObjectHashMap<Item, String> itemOwners = new Object2ObjectHashMap<>();
 
     private static class ItemStackKey {
 
@@ -114,7 +115,7 @@ public class ItemInfo {
     }
 
     // lookup optimisation
-    public static final ConcurrentHashMap<ItemStackKey, String> itemSearchNames = new ConcurrentHashMap<>();
+    public static final Object2ObjectHashMap<ItemStackKey, String> itemSearchNames = new Object2ObjectHashMap<>();
 
     public static boolean isHidden(ItemStack stack) {
         return hiddenItems.contains(stack);
