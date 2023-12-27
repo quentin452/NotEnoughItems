@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.google.common.collect.LinkedListMultimap;
 import fr.iamacat.optimizationsandtweaks.utils.agrona.collections.Object2ObjectHashMap;
 import net.minecraft.block.Block;
 import net.minecraft.client.resources.I18n;
@@ -74,15 +75,15 @@ public class ItemInfo {
         FOOTER
     }
 
-    public static final ArrayListMultimap<Layout, IHighlightHandler> highlightHandlers = ArrayListMultimap.create();
+    public static final LinkedListMultimap<Layout, IHighlightHandler> highlightHandlers = LinkedListMultimap.create();
     public static final ItemStackMap<String> nameOverrides = new ItemStackMap<>();
     public static final ItemStackSet hiddenItems = new ItemStackSet();
     public static final ItemStackSet finiteItems = new ItemStackSet();
-    public static final ArrayListMultimap<Item, ItemStack> itemOverrides = ArrayListMultimap.create();
-    public static final ArrayListMultimap<Item, ItemStack> itemVariants = ArrayListMultimap.create();
+    public static final LinkedListMultimap<Item, ItemStack> itemOverrides = LinkedListMultimap.create();
+    public static final LinkedListMultimap<Item, ItemStack> itemVariants = LinkedListMultimap.create();
 
     public static final LinkedList<IInfiniteItemHandler> infiniteHandlers = new LinkedList<>();
-    public static final ArrayListMultimap<Block, IHighlightHandler> highlightIdentifiers = ArrayListMultimap.create();
+    public static final LinkedListMultimap<Block, IHighlightHandler> highlightIdentifiers = LinkedListMultimap.create();
     public static final HashSet<Class<? extends Slot>> fastTransferExemptions = new HashSet<>();
 
     public static final Object2ObjectHashMap<Item, String> itemOwners = new Object2ObjectHashMap<>();
@@ -467,15 +468,15 @@ public class ItemInfo {
         EntityList.entityEggs.put(id, new EntityEggInfo(id, i, j));
     }
 
-    public static ArrayList<ItemStack> getIdentifierItems(World world, EntityPlayer player, MovingObjectPosition hit) {
+    public static LinkedList<ItemStack> getIdentifierItems(World world, EntityPlayer player, MovingObjectPosition hit) {
         int x = hit.blockX;
         int y = hit.blockY;
         int z = hit.blockZ;
         Block mouseoverBlock = world.getBlock(x, y, z);
 
-        ArrayList<ItemStack> items = new ArrayList<>();
+        LinkedList<ItemStack> items = new LinkedList<>();
 
-        ArrayList<IHighlightHandler> handlers = new ArrayList<>();
+        LinkedList<IHighlightHandler> handlers = new LinkedList<>();
         if (highlightIdentifiers.containsKey(null)) handlers.addAll(highlightIdentifiers.get(null));
         if (highlightIdentifiers.containsKey(mouseoverBlock)) handlers.addAll(highlightIdentifiers.get(mouseoverBlock));
         for (IHighlightHandler ident : handlers) {
@@ -508,7 +509,7 @@ public class ItemInfo {
 
     public static List<String> getText(ItemStack itemStack, World world, EntityPlayer player,
             MovingObjectPosition mop) {
-        List<String> retString = new ArrayList<>();
+        List<String> retString = new LinkedList<>();
 
         for (ItemInfo.Layout layout : ItemInfo.Layout.values())
             for (IHighlightHandler handler : ItemInfo.highlightHandlers.get(layout))
