@@ -1,3 +1,11 @@
+# Requirements
+
+CodeChickenCore Unofficial
+
+CodeChickenLib Unofficial
+
+OptimizationsAndTweaks
+
 # NotEnoughItems Unofficial - By the GTNH Team
 
 A continuation of NotEnoughItems for 1.7.10 by the developers of Gregtech: New Horizons modpack, with features either inspired and/or backported from JustEnoughItems
