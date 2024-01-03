@@ -14,6 +14,30 @@ public class GuiUsageRecipe extends GuiRecipe<IUsageHandler> {
     public static ArrayList<IUsageHandler> serialUsageHandlers = new ArrayList<>();
 
     public static boolean openRecipeGui(String inputId, Object... ingredients) {
+        try {
+            ArrayList<IUsageHandler> handlers = getiUsageHandlers(inputId, ingredients);
+
+            if (handlers.isEmpty()) {
+                NEIClientConfig.logger.warn("No handlers found for the given input and ingredients.");
+                return false;
+            }
+
+            Minecraft mc = NEIClientUtils.mc();
+            BookmarkRecipeId recipeId = getCurrentRecipe(mc.currentScreen);
+            GuiUsageRecipe gui = new GuiUsageRecipe(handlers, recipeId);
+
+            mc.displayGuiScreen(gui);
+            gui.openTargetRecipe(gui.recipeId);
+
+            return true;
+        } catch (Exception e) {
+            NEIClientConfig.logger.error("Error opening recipe GUI: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private static ArrayList<IUsageHandler> getiUsageHandlers(String inputId, Object[] ingredients) {
         RecipeHandlerQuery<IUsageHandler> recipeQuery = new RecipeHandlerQuery<>(
                 h -> getUsageOrCatalystHandler(h, inputId, ingredients),
                 usagehandlers,
@@ -22,17 +46,7 @@ public class GuiUsageRecipe extends GuiRecipe<IUsageHandler> {
                 "inputId: " + inputId,
                 "ingredients: " + Arrays.toString(ingredients));
         ArrayList<IUsageHandler> handlers = recipeQuery.runWithProfiling("recipe.concurrent.usage");
-        if (handlers.isEmpty()) return false;
-
-        Minecraft mc = NEIClientUtils.mc();
-        BookmarkRecipeId recipeId = getCurrentRecipe(mc.currentScreen);
-        GuiUsageRecipe gui = new GuiUsageRecipe(handlers, recipeId);
-
-        mc.displayGuiScreen(gui);
-
-        gui.openTargetRecipe(gui.recipeId);
-
-        return true;
+        return handlers;
     }
 
     private GuiUsageRecipe(ArrayList<IUsageHandler> handlers, BookmarkRecipeId recipeId) {

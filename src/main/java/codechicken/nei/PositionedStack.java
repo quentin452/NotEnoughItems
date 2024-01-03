@@ -1,6 +1,7 @@
 package codechicken.nei;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import net.minecraft.init.Blocks;
@@ -37,6 +38,13 @@ public class PositionedStack {
     public void generatePermutations() {
         if (permutated) return;
 
+        if (items == null || items.length == 0) {
+            items = new ItemStack[] { new ItemStack(Blocks.fire) };
+            permutated = true;
+            setPermutationToRender(0);
+            return;
+        }
+
         ArrayList<ItemStack> stacks = new ArrayList<>();
         for (ItemStack item : items) {
             if (item == null || item.getItem() == null) continue;
@@ -61,7 +69,9 @@ public class PositionedStack {
         }
         items = stacks.toArray(new ItemStack[0]);
 
-        if (items.length == 0) items = new ItemStack[] { new ItemStack(Blocks.fire) };
+        if (items.length == 0) {
+            items = new ItemStack[] { new ItemStack(Blocks.fire) };
+        }
 
         permutated = true;
         setPermutationToRender(0);
@@ -76,11 +86,17 @@ public class PositionedStack {
     }
 
     public void setPermutationToRender(int index) {
-        item = items[index].copy();
-        if (item.getItem() == null) item = new ItemStack(Blocks.fire);
-        else if (item.getItemDamage() == OreDictionary.WILDCARD_VALUE && item.getItem() != null
-                && item.getItem().isRepairable())
-            item.setItemDamage(0);
+        List<ItemStack> itemList = Arrays.asList(items);
+        if (index >= 0 && index < itemList.size()) {
+            ItemStack itemStack = itemList.get(index).copy();
+            if (itemStack.getItem() == null) {
+                new ItemStack(Blocks.fire);
+            } else if (itemStack.getItemDamage() == OreDictionary.WILDCARD_VALUE &&
+                    itemStack.getItem().isRepairable()) {
+                itemStack.setItemDamage(0);
+            }
+            item = itemStack;
+        }
     }
 
     public boolean contains(ItemStack ingredient) {

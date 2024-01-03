@@ -1,6 +1,7 @@
 package codechicken.nei.recipe;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
@@ -24,17 +25,22 @@ class RecipeHandlerQuery<T extends IRecipeHandler> {
     private final String[] errorMessage;
     private boolean error = false;
 
-    RecipeHandlerQuery(Function<T, T> recipeHandlerFunction, List<T> recipeHandlers, List<T> serialRecipeHandlers,
-            String... errorMessage) {
+    public RecipeHandlerQuery(
+            Function<T, T> recipeHandlerFunction,
+            List<T> recipeHandlers,
+            List<T> serialRecipeHandlers,
+            String... errorMessage
+    ) {
         this.recipeHandlerFunction = recipeHandlerFunction;
         this.recipeHandlers = recipeHandlers;
         this.serialRecipeHandlers = serialRecipeHandlers;
         this.errorMessage = errorMessage;
     }
 
-    ArrayList<T> runWithProfiling(String profilerSection) {
+     ArrayList<T> runWithProfiling(String profilerSection) {
         TaskProfiler profiler = ProfilerRecipeHandler.getProfiler();
         profiler.start(profilerSection);
+
         try {
             ArrayList<T> handlers = getRecipeHandlersParallel();
             if (error) {
@@ -42,51 +48,48 @@ class RecipeHandlerQuery<T extends IRecipeHandler> {
             }
             return handlers;
         } catch (InterruptedException | ExecutionException e) {
-            printLog(e);
-            displayRecipeLookupError();
-            return new ArrayList<>(0);
+            handleExecutionException(e);
+            return new ArrayList<>();
         } finally {
             profiler.end();
         }
     }
 
     private ArrayList<T> getRecipeHandlersParallel() throws InterruptedException, ExecutionException {
-        // Pre-find the fuels so we're not fighting over it
         FuelRecipeHandler.findFuelsOnceParallel();
-        ArrayList<T> handlers = getSerialHandlersWithRecipes();
-        handlers.addAll(getHandlersWithRecipes());
+        ArrayList<T> handlers = new ArrayList<>();
+        handlers.addAll(getValidHandlers(serialRecipeHandlers));
+        handlers.addAll(getValidHandlers(recipeHandlers));
         handlers.sort(NEIClientConfig.HANDLER_COMPARATOR);
         return handlers;
     }
 
-    private ArrayList<T> getSerialHandlersWithRecipes() {
-        return serialRecipeHandlers.stream().map(handler -> {
-            try {
-                return recipeHandlerFunction.apply(handler);
-            } catch (Throwable t) {
-                printLog(t);
-                error = true;
-                return null;
-            }
-        }).filter(h -> h != null && h.numRecipes() > 0).collect(Collectors.toCollection(ArrayList::new));
+    private ArrayList<T> getValidHandlers(List<T> handlers) {
+        return handlers.parallelStream()
+                .map(handler -> {
+                    try {
+                        return recipeHandlerFunction.apply(handler);
+                    } catch (Throwable t) {
+                        handleThrowable(t);
+                        return null;
+                    }
+                })
+                .filter(h -> h != null && h.numRecipes() > 0)
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
-    private ArrayList<T> getHandlersWithRecipes() throws InterruptedException, ExecutionException {
-        return ItemList.forkJoinPool.submit(() -> recipeHandlers.parallelStream().map(handler -> {
-            try {
-                return recipeHandlerFunction.apply(handler);
-            } catch (Throwable t) {
-                printLog(t);
-                error = true;
-                return null;
-            }
-        }).filter(h -> h != null && h.numRecipes() > 0).collect(Collectors.toCollection(ArrayList::new))).get();
+    private void handleExecutionException(Exception e) {
+        printLog(e);
+        displayRecipeLookupError();
+    }
+
+    private void handleThrowable(Throwable t) {
+        printLog(t);
+        error = true;
     }
 
     private void printLog(Throwable t) {
-        for (String message : errorMessage) {
-            NEIClientConfig.logger.error(message);
-        }
+        Arrays.stream(errorMessage).forEach(msg -> NEIClientConfig.logger.error(msg));
         t.printStackTrace();
     }
 
