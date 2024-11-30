@@ -16,17 +16,19 @@ import codechicken.lib.inventory.InventoryUtils;
 import codechicken.nei.FastTransferManager;
 import codechicken.nei.PositionedStack;
 import codechicken.nei.api.IOverlayHandler;
+import cpw.mods.fml.relauncher.ReflectionHelper;
 
-@SuppressWarnings("rawtypes, unchecked")
 public class DefaultOverlayHandler implements IOverlayHandler {
 
-    public static Class gtItem;
+    private static Class<?> gtItem;
 
     static {
         try {
-            gtItem = Class.forName("gregtech.api.items.GT_MetaBase_Item");
-        } catch (ClassNotFoundException ignored) {
-            gtItem = null;
+            final ClassLoader loader = DefaultOverlayHandler.class.getClassLoader();
+            gtItem = ReflectionHelper
+                    .getClass(loader, "gregtech.api.items.MetaBaseItem", "gregtech.api.items.GT_MetaBase_Item");
+        } catch (Exception ignored) {
+            /* Do nothing */
         }
     }
 
@@ -85,20 +87,21 @@ public class DefaultOverlayHandler implements IOverlayHandler {
         if (quantity != 0) moveIngredients(gui, assignedIngredients, quantity);
     }
 
-    @SuppressWarnings("unchecked")
     private boolean clearIngredients(GuiContainer gui, List<PositionedStack> ingreds) {
-        for (PositionedStack pstack : ingreds) for (Slot slot : (List<Slot>) gui.inventorySlots.inventorySlots)
-            if (slot.xDisplayPosition == pstack.relx + offsetx && slot.yDisplayPosition == pstack.rely + offsety) {
-                if (!slot.getHasStack()) continue;
+        for (PositionedStack pstack : ingreds) {
+            for (Slot slot : gui.inventorySlots.inventorySlots) {
+                if (slot.xDisplayPosition == pstack.relx + offsetx && slot.yDisplayPosition == pstack.rely + offsety) {
+                    if (!slot.getHasStack()) continue;
 
-                FastTransferManager.clickSlot(gui, slot.slotNumber, 0, 1);
-                if (slot.getHasStack()) return false;
+                    FastTransferManager.clickSlot(gui, slot.slotNumber, 0, 1);
+                    if (slot.getHasStack()) return false;
+                }
             }
+        }
 
         return true;
     }
 
-    @SuppressWarnings("unchecked")
     private void moveIngredients(GuiContainer gui, List<IngredientDistribution> assignedIngredients, int quantity) {
         for (IngredientDistribution distrib : assignedIngredients) {
             if (distrib.slots.length == 0) continue;
@@ -112,7 +115,7 @@ public class DefaultOverlayHandler implements IOverlayHandler {
             int slotTransferred = 0;
             int slotTransferCap = pstack.getMaxStackSize();
 
-            for (Slot slot : (List<Slot>) gui.inventorySlots.inventorySlots) {
+            for (Slot slot : gui.inventorySlots.inventorySlots) {
                 if (!slot.getHasStack() || !canMoveFrom(slot, gui)) continue;
 
                 ItemStack stack = slot.getStack();
@@ -181,7 +184,7 @@ public class DefaultOverlayHandler implements IOverlayHandler {
             assignedSlots.add(new LinkedList<>());
         }
 
-        while (avaliableSlots.size() > 0 && remainingIngreds.size() > 0) {
+        while (!avaliableSlots.isEmpty() && !remainingIngreds.isEmpty()) {
             for (Iterator<Integer> iterator = remainingIngreds.iterator(); iterator.hasNext();) {
                 int i = iterator.next();
                 boolean assigned = false;
@@ -199,8 +202,9 @@ public class DefaultOverlayHandler implements IOverlayHandler {
                     }
                 }
 
-                if (!assigned || istack.numSlots * istack.stack.getMaxStackSize() >= istack.invAmount)
+                if (!assigned || istack.numSlots * istack.stack.getMaxStackSize() >= istack.invAmount) {
                     iterator.remove();
+                }
             }
         }
 
@@ -245,9 +249,8 @@ public class DefaultOverlayHandler implements IOverlayHandler {
         return assignedIngredients;
     }
 
-    @SuppressWarnings("unchecked")
     private void findInventoryQuantities(GuiContainer gui, List<DistributedIngred> ingredStacks) {
-        for (Slot slot : (List<Slot>) gui.inventorySlots.inventorySlots) /* work out how much we have to go round */ {
+        for (Slot slot : gui.inventorySlots.inventorySlots) /* work out how much we have to go round */ {
             if (slot.getHasStack() && canMoveFrom(slot, gui)) {
                 ItemStack pstack = slot.getStack();
                 DistributedIngred istack = findIngred(ingredStacks, pstack);
@@ -272,13 +275,12 @@ public class DefaultOverlayHandler implements IOverlayHandler {
         return slot.inventory instanceof InventoryPlayer;
     }
 
-    @SuppressWarnings("unchecked")
     public Slot[][] mapIngredSlots(GuiContainer gui, List<PositionedStack> ingredients) {
         Slot[][] recipeSlotList = new Slot[ingredients.size()][];
         for (int i = 0; i < ingredients.size(); i++) /* identify slots */ {
             LinkedList<Slot> recipeSlots = new LinkedList<>();
             PositionedStack pstack = ingredients.get(i);
-            for (Slot slot : (List<Slot>) gui.inventorySlots.inventorySlots) {
+            for (Slot slot : gui.inventorySlots.inventorySlots) {
                 if (slot.xDisplayPosition == pstack.relx + offsetx && slot.yDisplayPosition == pstack.rely + offsety) {
                     recipeSlots.add(slot);
                     break;

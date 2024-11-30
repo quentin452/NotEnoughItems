@@ -11,36 +11,29 @@ import codechicken.nei.config.GuiOptionList.OptionScrollSlot;
 
 public class OptionTextField extends Option {
 
-    private boolean focused = false;
-    private TextField textField = new TextField("test") {
+    protected final TextField textField = new TextField("test") {
 
-        @Override
-        public void onTextChange(String oldText) {
-            if (focused() && isValidValue(text())) if (!defaulting() || !text().equals(getTag().getValue())) // don't
-                                                                                                             // override
-                                                                                                             // global
-                                                                                                             // if text
-                                                                                                             // hasn't
-                                                                                                             // changed
-                getTag().setValue(text());
+        {
+            this.h = 20;
         }
 
         @Override
-        public boolean focused() {
-            return focused;
+        public void onTextChange(String oldText) {
+            // don't override global if text hasn't changed
+            if (focused() && isValidValue(text()) && (!defaulting() || !text().equals(getTag().getValue()))) {
+                getTag().setValue(text());
+            }
         }
 
         @Override
         public void setFocus(boolean focus) {
             if (!focus && !isValidValue(text())) setText(renderTag().getValue());
-
-            focused = focus;
+            super.setFocus(focus);
         }
     };
 
     public OptionTextField(String name) {
         super(name);
-        textField.h = 20;
     }
 
     @Override
@@ -86,7 +79,7 @@ public class OptionTextField extends Option {
     public List<String> handleTooltip(int mousex, int mousey, List<String> currenttip) {
         if (new Rectangle4i(10, 0, textField.x - 10, 20).contains(mousex, mousey)) {
             String tip = translateN(name + ".tip");
-            if (!tip.equals(name + ".tip")) currenttip.add(tip);
+            if (!tip.equals(namespaced(name + ".tip"))) currenttip.add(tip);
         }
         return currenttip;
     }

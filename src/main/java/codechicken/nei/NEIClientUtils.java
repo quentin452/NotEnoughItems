@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 import net.minecraft.client.Minecraft;
@@ -36,8 +37,6 @@ import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ChatComponentTranslation;
-import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IChatComponent;
 import net.minecraft.util.ResourceLocation;
 
@@ -58,10 +57,25 @@ public class NEIClientUtils extends NEIServerUtils {
 
     /** Formats a number with group separator and at most 2 fraction digits. */
     private static final Map<Locale, DecimalFormat> decimalFormatters = new HashMap<>();
+    private static final Map<Integer, Integer> keyHashMap = new HashMap<>();
 
     public static final int ALT_HASH = 1 << 27;
     public static final int SHIFT_HASH = 1 << 26;
     public static final int CTRL_HASH = 1 << 25;
+
+    static {
+        keyHashMap.put(Keyboard.KEY_LSHIFT, SHIFT_HASH);
+        keyHashMap.put(Keyboard.KEY_RSHIFT, SHIFT_HASH);
+
+        keyHashMap.put(Keyboard.KEY_LCONTROL, CTRL_HASH);
+        keyHashMap.put(Keyboard.KEY_LCONTROL, CTRL_HASH);
+
+        keyHashMap.put(Keyboard.KEY_LMETA, CTRL_HASH);
+        keyHashMap.put(Keyboard.KEY_RMETA, CTRL_HASH);
+
+        keyHashMap.put(Keyboard.KEY_LMENU, ALT_HASH);
+        keyHashMap.put(Keyboard.KEY_LMENU, ALT_HASH);
+    }
 
     public static Minecraft mc() {
         return Minecraft.getMinecraft();
@@ -367,18 +381,23 @@ public class NEIClientUtils extends NEIServerUtils {
     }
 
     public static String cropText(FontRenderer fontRenderer, String text, int containerWidth) {
-
         int textWidth = fontRenderer.getStringWidth(text);
 
         if (textWidth > containerWidth) {
-            textWidth += fontRenderer.getStringWidth("...");
+            int dots = fontRenderer.getStringWidth("...");
 
-            while (textWidth > containerWidth) {
-                textWidth -= fontRenderer.getCharWidth(text.charAt(text.length() - 1));
-                text = text.substring(0, text.length() - 1);
+            if (containerWidth > dots) {
+                textWidth += dots;
+
+                while (textWidth > containerWidth) {
+                    textWidth -= fontRenderer.getCharWidth(text.charAt(text.length() - 1));
+                    text = text.substring(0, text.length() - 1);
+                }
+
+                return text + "...";
             }
 
-            return text + "...";
+            return "...";
         }
 
         return text;
@@ -394,7 +413,6 @@ public class NEIClientUtils extends NEIServerUtils {
 
     public static void setItemQuantity(int i) {
         world.nbt.setInteger("quantity", i);
-        world.saveNBT();
     }
 
     public static GuiContainer getGuiContainer() {
@@ -434,16 +452,51 @@ public class NEIClientUtils extends NEIServerUtils {
         if (Keyboard.getEventKeyState()) {
             final int keycode = Keyboard.getEventKey();
 
-            if (keycode != Keyboard.KEY_LSHIFT && keycode != Keyboard.KEY_RSHIFT
-                    && keycode != Keyboard.KEY_LCONTROL
-                    && keycode != Keyboard.KEY_RCONTROL
-                    && keycode != Keyboard.KEY_LMENU
-                    && keycode != Keyboard.KEY_RMENU) {
+            if (!keyHashMap.containsKey(keycode)) {
                 return getMetaHash() + keycode;
             }
         }
 
         return Keyboard.CHAR_NONE;
+    }
+
+    public static String getKeyHashName(int keyBind) {
+        StringJoiner keyText = new StringJoiner(" + ");
+
+        if ((keyBind & CTRL_HASH) != 0) {
+            keyText.add(translate(Minecraft.isRunningOnMac ? "key.ctrl.mac" : "key.ctrl"));
+        }
+
+        if ((keyBind & SHIFT_HASH) != 0) {
+            keyText.add(translate("key.shift"));
+        }
+
+        if ((keyBind & ALT_HASH) != 0) {
+            keyText.add(translate("key.alt"));
+        }
+
+        return keyText.toString();
+    }
+
+    public static String getKeyName(int keyBind) {
+        keyBind = keyHashMap.getOrDefault(keyBind, keyBind);
+        StringJoiner keyText = new StringJoiner(" + ");
+        String hashText = getKeyHashName(keyBind);
+        int keyID = unHashKey(keyBind);
+
+        if (!hashText.isEmpty()) {
+            keyText.add(hashText);
+        }
+
+        if (keyID != Keyboard.CHAR_NONE || hashText.isEmpty()) {
+            keyText.add(Keyboard.getKeyName(keyID));
+        }
+
+        return keyText.toString();
+    }
+
+    public static int unHashKey(int keyBind) {
+        return keyBind & ~(CTRL_HASH | SHIFT_HASH | ALT_HASH);
     }
 
     public static void playClickSound() {
@@ -457,16 +510,9 @@ public class NEIClientUtils extends NEIServerUtils {
         String stackTrace = cause + sw;
         if (buffer.contains(stackTrace)) return;
 
-        System.err.println("Error while rendering: " + cause);
+        System.err.println("Error while rendering: " + cause + " (" + e.getMessage() + ")");
         e.printStackTrace();
         buffer.add(stackTrace);
-
-        EntityPlayer player = Minecraft.getMinecraft().thePlayer;
-        if (player != null) {
-            IChatComponent chat = new ChatComponentTranslation("nei.chat.render.error");
-            chat.getChatStyle().setColor(EnumChatFormatting.RED);
-            player.addChatComponentMessage(chat);
-        }
     }
 
     public static void reportErrorBuffered(Throwable e, Set<String> buffer, ItemStack cause) {

@@ -81,7 +81,6 @@ public class ContainerPotionCreator extends ContainerExtended {
         public void markDirty() {
             super.markDirty();
             NEIClientConfig.global.nbt.setTag("potionStore", tag);
-            NEIClientConfig.global.saveNBT();
         }
     }
 
@@ -117,7 +116,6 @@ public class ContainerPotionCreator extends ContainerExtended {
         if (!player.worldObj.isRemote) InventoryUtils.dropOnClose(player, potionInv);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public void handleServerPacket(PacketCustom packet) {
         ItemStack potion = potionInv.getStackInSlot(0);

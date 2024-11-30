@@ -1,17 +1,16 @@
 package codechicken.nei.recipe;
 
-import static codechicken.lib.gui.GuiDraw.fontRenderer;
-
+import java.awt.Dimension;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
@@ -21,22 +20,32 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumChatFormatting;
+import net.minecraftforge.common.MinecraftForge;
 
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
 import codechicken.lib.gui.GuiDraw;
+import codechicken.nei.Button;
 import codechicken.nei.GuiNEIButton;
+import codechicken.nei.ItemsTooltipLineHandler;
 import codechicken.nei.LayoutManager;
 import codechicken.nei.NEICPH;
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.NEIClientUtils;
 import codechicken.nei.PositionedStack;
+import codechicken.nei.RecipeSearchField;
+import codechicken.nei.RestartableTask;
+import codechicken.nei.SearchField;
 import codechicken.nei.VisiblityData;
 import codechicken.nei.api.IGuiContainerOverlay;
 import codechicken.nei.api.INEIGuiHandler;
 import codechicken.nei.api.IOverlayHandler;
+import codechicken.nei.api.IRecipeFilter;
+import codechicken.nei.api.IRecipeFilter.IRecipeFilterProvider;
 import codechicken.nei.api.IRecipeOverlayRenderer;
+import codechicken.nei.api.ItemFilter;
 import codechicken.nei.api.TaggedInventoryArea;
 import codechicken.nei.drawable.DrawableBuilder;
 import codechicken.nei.drawable.DrawableResource;
@@ -44,6 +53,7 @@ import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.guihook.IContainerTooltipHandler;
 import codechicken.nei.guihook.IGuiClientSide;
 import codechicken.nei.guihook.IGuiHandleMouseWheel;
+import codechicken.nei.recipe.GuiOverlayButton.UpdateOverlayButtonsEvent;
 
 public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer implements IGuiContainerOverlay,
         IGuiClientSide, IGuiHandleMouseWheel, IContainerTooltipHandler, INEIGuiHandler {
@@ -62,7 +72,10 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     private static final int buttonWidth = 13;
     private static final int buttonHeight = 12;
 
-    private boolean limitToOneRecipe = false;
+    public static final List<IRecipeFilterProvider> recipeFilterers = new LinkedList<>();
+
+    protected boolean limitToOneRecipe = false;
+    protected PermutationTooltipLineHandler permutationTooltipLineHandler;
 
     // Background image
     final DrawableResource bgTop = new DrawableBuilder("nei:textures/gui/recipebg.png", 0, BG_TOP_Y, 176, BG_TOP_HEIGHT)
@@ -81,9 +94,9 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
             BG_BOTTOM_HEIGHT).build();
 
     public ArrayList<H> currenthandlers = new ArrayList<>();
-
     public int page;
     public int recipetype;
+
     public BookmarkRecipeId recipeId;
     public ContainerRecipe slotcontainer;
     public GuiContainer firstGui;
@@ -94,16 +107,191 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     private GuiButton nexttype;
     private GuiButton prevtype;
 
-    private final int OVERLAY_BUTTON_ID_START = 4;
-    private GuiButton[] overlayButtons;
+    private GuiOverlayButton[] overlayButtons = new GuiOverlayButton[0];
 
     private final Rectangle area = new Rectangle();
     private final GuiRecipeTabs recipeTabs;
     private final GuiRecipeCatalyst guiRecipeCatalyst;
-    private H handler;
+    private SearchRecipeHandler<H> handler;
     private HandlerInfo handlerInfo;
 
     private int yShift = 0;
+
+    protected static class PermutationTooltipLineHandler extends ItemsTooltipLineHandler {
+
+        protected PositionedStack pStack = null;
+
+        public PermutationTooltipLineHandler(PositionedStack pStack, List<ItemStack> items) {
+            super(NEIClientUtils.translate("recipe.accepts"), items, false, 5);
+            this.pStack = pStack;
+        }
+
+        public static PermutationTooltipLineHandler getInstance(PositionedStack pStack) {
+            final ItemFilter filter = TemplateRecipeHandler.getItemFilter();
+            List<ItemStack> items = Arrays.asList(pStack.items).stream().filter(filter::matches)
+                    .collect(Collectors.toCollection(ArrayList::new));
+
+            if (items.isEmpty()) {
+                items = Arrays.asList(pStack.items);
+            }
+
+            return new PermutationTooltipLineHandler(pStack, items);
+        }
+
+    }
+
+    public static class ItemRecipeFilter implements IRecipeFilter {
+
+        public ItemFilter filter;
+
+        public ItemRecipeFilter(ItemFilter filter) {
+            this.filter = filter;
+        }
+
+        @Override
+        public boolean matches(IRecipeHandler handler, List<PositionedStack> ingredients, PositionedStack result,
+                List<PositionedStack> others) {
+
+            if (matchPositionedStack(ingredients)) {
+                return true;
+            }
+
+            if (matchPositionedStack(result)) {
+                return true;
+            }
+
+            if (matchPositionedStack(others)) {
+                return true;
+            }
+
+            return false;
+        }
+
+        private boolean matchPositionedStack(List<PositionedStack> items) {
+            for (PositionedStack pStack : items) {
+                if (matchPositionedStack(pStack)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean matchPositionedStack(PositionedStack pStack) {
+            if (pStack == null) return false;
+
+            for (ItemStack stack : pStack.items) {
+                if (filter.matches(stack)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+    }
+
+    public static class AllMultiRecipeFilter implements IRecipeFilter {
+
+        public List<IRecipeFilter> filters;
+
+        public AllMultiRecipeFilter(List<IRecipeFilter> filters) {
+            this.filters = filters;
+        }
+
+        public AllMultiRecipeFilter(IRecipeFilter filters) {
+            this(Arrays.asList(filters));
+        }
+
+        public AllMultiRecipeFilter() {
+            this(new ArrayList<>());
+        }
+
+        @Override
+        public boolean matches(IRecipeHandler handler, List<PositionedStack> ingredients, PositionedStack result,
+                List<PositionedStack> others) {
+            for (IRecipeFilter filter : filters) {
+                try {
+                    if (filter != null && !filter.matches(handler, ingredients, result, others)) return false;
+                } catch (Exception e) {
+                    NEIClientConfig.logger.error("Exception filtering " + handler + " with " + filter, e);
+                }
+            }
+            return true;
+        }
+    }
+
+    protected static final RestartableTask updateFilter = new RestartableTask("NEI Recipe Filtering") {
+
+        @Override
+        public void execute() {
+            final GuiScreen currentScreen = NEIClientUtils.mc().currentScreen;
+
+            if (currentScreen instanceof GuiRecipe) {
+                final GuiRecipe<?> guiRecipe = (GuiRecipe<?>) currentScreen;
+                final SearchRecipeHandler<?> searchHandler = guiRecipe.handler;
+
+                if (searchHandler != null && searchHandler.searchingAvailable()) {
+
+                    if (GuiRecipe.searchField.text().isEmpty()) {
+                        searchHandler.setSearchIndices(null);
+                        guiRecipe.changePage(0);
+                    } else {
+                        final IRecipeFilter filter = new ItemRecipeFilter(GuiRecipe.searchField.getFilter());
+                        List<Integer> filtered = searchHandler.getSearchResult(filter);
+
+                        if (filtered == null) {
+                            stop();
+                        }
+
+                        if (interrupted()) return;
+                        searchHandler.setSearchIndices(filtered);
+                        guiRecipe.changePage(0);
+                    }
+
+                }
+
+            }
+
+        }
+
+    };
+
+    protected static final RecipeSearchField searchField = new RecipeSearchField("") {
+
+        @Override
+        protected boolean noResults() {
+            GuiScreen currentScreen = NEIClientUtils.mc().currentScreen;
+            return !(currentScreen instanceof GuiRecipe) || ((GuiRecipe<?>) currentScreen).numRecipes() > 0;
+        }
+
+        @Override
+        public void onTextChange(String oldText) {
+            updateFilter.restart();
+        }
+
+    };
+
+    protected static final Button toggleSearch = new Button() {
+
+        @Override
+        public boolean onButtonPress(boolean rightclick) {
+            if (rightclick) return false;
+
+            if (searchField.isVisible()) {
+                searchField.setText("");
+                searchField.setFocus(false);
+                searchField.setVisible(false);
+                state = 0;
+            } else {
+                searchField.setVisible(true);
+                searchField.setFocus(true);
+                state = 2;
+            }
+
+            return true;
+        }
+
+    };
 
     /**
      * This will only be true iff height hacking has been configured for the current recipe handler AND we are currently
@@ -119,7 +307,10 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
         this.prevGui = prevgui;
         this.firstGuiGeneral = prevgui;
-        if (prevgui instanceof GuiContainer) this.firstGui = (GuiContainer) prevgui;
+
+        if (prevgui instanceof GuiContainer) {
+            this.firstGui = (GuiContainer) prevgui;
+        }
 
         if (prevgui instanceof IGuiContainerOverlay) {
             this.firstGui = ((IGuiContainerOverlay) prevgui).getFirstScreen();
@@ -164,7 +355,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
             trueGuiTop = guiTop;
 
             isHeightHackApplied = NEIClientConfig.heightHackHandlerRegex.stream()
-                    .map(pattern -> pattern.matcher(handler.getHandlerId())).anyMatch(Matcher::matches);
+                    .map(pattern -> pattern.matcher(handler.original.getHandlerId())).anyMatch(Matcher::matches);
             if (isHeightHackApplied) {
                 // guiTop is the top edge of the recipe screen on the y-axis. Old recipe handlers expect a single paging
                 // widget at the top and at the bottom of the recipe screen with a height of 16px each, but GTNH NEI
@@ -211,20 +402,14 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         }
     }
 
-    @Override
     public void initGui() {
-        initGui(false);
-    }
-
-    @SuppressWarnings("unchecked")
-    public void initGui(boolean asWidget) {
         xSize = 176;
         ySize = Math.min(Math.max(height - 68, 166), 370);
-        if (!asWidget) {
+        if (!this.limitToOneRecipe) {
             super.initGui();
         } else {
             this.guiLeft = (this.width - this.xSize) / 2;
-            this.ySize = this.getHeightAsWidget();
+            this.ySize = this.getWidgetSize().height;
             this.mc = NEIClientUtils.mc();
             this.fontRendererObj = mc.fontRenderer;
             ScaledResolution scaledresolution = new ScaledResolution(
@@ -234,24 +419,54 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
             this.width = scaledresolution.getScaledWidth();
             this.height = scaledresolution.getScaledHeight();
         }
-        guiTop = (height - ySize) / 2 + 10;
-        currenthandlers = getCurrentRecipeHandlers(); // Probably don't comment me out
 
-        if (handler == null) setRecipePage(recipetype);
-        else initOverlayButtons();
+        guiTop = (height - ySize) / 2 + 10;
+
+        if (handler == null) {
+            setRecipePage(recipetype);
+        } else {
+            updateOverlayButtons();
+        }
 
         checkYShift();
 
         final int rightButtonX = guiLeft + xSize - borderPadding - buttonWidth;
         final int leftButtonX = guiLeft + borderPadding;
 
-        nexttype = new GuiNEIButton(0, leftButtonX, guiTop + 3, buttonWidth, buttonHeight, "<");
-        prevtype = new GuiNEIButton(1, rightButtonX, guiTop + 3, buttonWidth, buttonHeight, ">");
+        nexttype = new GuiNEIButton(0, leftButtonX, guiTop + 3, buttonWidth, buttonHeight, "<") {
 
-        nextpage = new GuiNEIButton(2, leftButtonX, guiTop + 17, buttonWidth, buttonHeight, "<");
-        prevpage = new GuiNEIButton(3, rightButtonX, guiTop + 17, buttonWidth, buttonHeight, ">");
+            @Override
+            public void mouseReleased(int mouseX, int mouseY) {
+                prevType();
+            }
+        };
+        prevtype = new GuiNEIButton(1, rightButtonX, guiTop + 3, buttonWidth, buttonHeight, ">") {
 
-        buttonList.addAll(Arrays.asList(nexttype, prevtype, nextpage, prevpage));
+            @Override
+            public void mouseReleased(int mouseX, int mouseY) {
+                nextType();
+            }
+        };
+
+        nextpage = new GuiNEIButton(2, leftButtonX, guiTop + 17, buttonWidth, buttonHeight, "<") {
+
+            @Override
+            public void mouseReleased(int mouseX, int mouseY) {
+                prevPage();
+            }
+        };
+        prevpage = new GuiNEIButton(3, rightButtonX, guiTop + 17, buttonWidth, buttonHeight, ">") {
+
+            @Override
+            public void mouseReleased(int mouseX, int mouseY) {
+                nextPage();
+            }
+        };
+
+        toggleSearch.icon = new DrawableBuilder("nei:textures/nei_sprites.png", 0, 76, 10, 10).build();
+
+        this.buttonList.addAll(Arrays.asList(nexttype, prevtype, nextpage, prevpage));
+        this.overlayButtons = new GuiOverlayButton[0];
 
         if (currenthandlers.size() == 1) {
             nexttype.visible = false;
@@ -262,35 +477,90 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         refreshPage();
     }
 
-    @SuppressWarnings("unchecked")
-    private void initOverlayButtons() {
-        if (overlayButtons != null) {
-            buttonList.removeIf(Arrays.asList(overlayButtons)::contains);
+    private void updateOverlayButtons() {
+        final List<Integer> indices = getRecipeIndices();
+
+        if (isDirtyOverlayButtons(indices)) {
+            this.buttonList.removeIf(Arrays.asList(this.overlayButtons)::contains);
+
+            final int xOffset = (limitToOneRecipe ? 0 : guiLeft) + xSize - borderPadding;
+            final int yOffset = (limitToOneRecipe ? -buttonHeight : guiTop - 18) + getRecipePosition(0).y;
+            final int height = handlerInfo.getHeight() - yShift;
+            final UpdateOverlayButtonsEvent.Pre preEvent = new UpdateOverlayButtonsEvent.Pre(
+                    this,
+                    xOffset,
+                    yOffset,
+                    height,
+                    handlerInfo);
+            List<GuiOverlayButton> buttons = new ArrayList<>();
+
+            if (MinecraftForge.EVENT_BUS.post(preEvent)) {
+                buttons = preEvent.buttonList;
+            } else {
+
+                for (int refIndex = 0; refIndex < indices.size(); refIndex++) {
+                    final int recipeIndex = indices.get(refIndex);
+
+                    if (handler.original.getResultStack(recipeIndex) == null
+                            && handler.original.getOtherStacks(recipeIndex).isEmpty()) {
+                        continue;
+                    }
+
+                    buttons.add(
+                            new GuiOverlayButton(
+                                    firstGui,
+                                    handler.original,
+                                    recipeIndex,
+                                    xOffset - buttonWidth,
+                                    yOffset + height * (refIndex + 1),
+                                    buttonWidth,
+                                    buttonHeight));
+                }
+
+                if (this.equals(this.mc.currentScreen)) {
+                    UpdateOverlayButtonsEvent.Post postEvent = new UpdateOverlayButtonsEvent.Post(this, buttons);
+                    MinecraftForge.EVENT_BUS.post(postEvent);
+                    buttons = postEvent.buttonList;
+                }
+            }
+
+            this.overlayButtons = buttons.toArray(new GuiOverlayButton[buttons.size()]);
+            this.buttonList.addAll(buttons);
+        }
+    }
+
+    private boolean isDirtyOverlayButtons(List<Integer> indices) {
+
+        if (this.overlayButtons.length == 0) {
+            return true;
         }
 
-        final int recipesPerPage = getRecipesPerPage();
-        overlayButtons = new GuiButton[recipesPerPage];
-        final int xOffset = limitToOneRecipe ? ((xSize / 2) - 2) : (width / 2);
-        final int yOffset = limitToOneRecipe ? 0 : guiTop - 18;
-        final String overlayKeyName = NEIClientConfig
-                .getKeyName(NEIClientConfig.getKeyBinding("gui.overlay_use"), true);
-        for (int i = 0; i < recipesPerPage; i++) {
-            overlayButtons[i] = new GuiNEIButton(
-                    OVERLAY_BUTTON_ID_START + i,
-                    xOffset + 65,
-                    yOffset + getRecipePosition(i).y + handlerInfo.getHeight(),
-                    buttonWidth,
-                    buttonHeight,
-                    "?");
-            if (overlayKeyName != null && limitToOneRecipe) {
-                overlayButtons[i].visible = true;
-                overlayButtons[i].displayString = overlayKeyName;
-                overlayButtons[i].width = fontRenderer.getStringWidth(overlayKeyName) + 6;
-                overlayButtons[i].xPosition = xOffset + 85 - overlayButtons[i].width;
+        for (GuiOverlayButton button : this.overlayButtons) {
+            if (button.handler != handler.original || !indices.contains(button.recipeIndex)) {
+                return true;
             }
         }
-        Collections.addAll(buttonList, overlayButtons);
-        itemPresenceCacheRecipe = -1;
+
+        return false;
+    }
+
+    public static IRecipeFilter getRecipeListFilter() {
+        if (recipeFilterers.isEmpty()) {
+            return null;
+        }
+
+        final AllMultiRecipeFilter recipeFilter = new AllMultiRecipeFilter();
+
+        synchronized (recipeFilterers) {
+            for (IRecipeFilterProvider p : recipeFilterers) {
+                IRecipeFilter filter = p.getFilter();
+                if (filter != null) {
+                    recipeFilter.filters.add(filter);
+                }
+            }
+        }
+
+        return recipeFilter.filters.size() == 1 ? recipeFilter.filters.get(0) : recipeFilter;
     }
 
     private void checkYShift() {
@@ -301,39 +571,66 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         setRecipePage(idx, 0);
     }
 
-    public void setRecipePage(int idx, int position) {
-        recipetype = idx;
-        if (recipetype < 0) recipetype = currenthandlers.size() - 1;
-        else if (recipetype >= currenthandlers.size()) recipetype = 0;
+    public void setRecipePage(int idx, int refIndex) {
+        recipetype = (currenthandlers.size() + idx) % currenthandlers.size();
 
-        handler = currenthandlers.get(recipetype);
-        handlerInfo = GuiRecipeTab.getHandlerInfo(handler);
-        page = Math.min(Math.max(0, position), handler.numRecipes() - 1) / getRecipesPerPage();
+        handler = new SearchRecipeHandler<>(currenthandlers.get(recipetype));
+        handlerInfo = GuiRecipeTab.getHandlerInfo(handler.original);
+
+        if (!limitToOneRecipe) {
+            searchField.setText("");
+            searchField.setVisible(false);
+            toggleSearch.state = 0;
+        }
+
+        page = Math.min(Math.max(0, refIndex), this.numRecipes() - 1) / getRecipesPerPage();
+        changePage(0);
         recipeTabs.calcPageNumber();
         checkYShift();
-        initOverlayButtons();
     }
 
     public List<GuiButton> getOverlayButtons() {
-        return Collections.unmodifiableList(Arrays.asList(overlayButtons));
+        return Collections.unmodifiableList(Arrays.asList(this.overlayButtons));
     }
 
-    public void openTargetRecipe(BookmarkRecipeId recipeId) {
+    public int openTargetRecipe(BookmarkRecipeId recipeId) {
+        int refIndex = -1;
+        int recipetype = 0;
 
-        if (recipeId == null) {
-            return;
+        this.recipeId = recipeId;
+
+        if (this.recipeId != null) {
+            for (int j = 0; j < currenthandlers.size(); j++) {
+                H localHandler = currenthandlers.get(j);
+                HandlerInfo localHandlerInfo = GuiRecipeTab.getHandlerInfo(localHandler);
+
+                if (localHandlerInfo.getHandlerName().equals(this.recipeId.handlerName)) {
+                    recipetype = j;
+
+                    if (!this.recipeId.ingredients.isEmpty()) {
+                        refIndex = SearchRecipeHandler.findFirst(
+                                localHandler,
+                                (recipeIndex) -> this.recipeId
+                                        .equalsIngredients(localHandler.getIngredientStacks(recipeIndex)));
+                    }
+
+                    break;
+                }
+            }
         }
 
-        recipeId.updateTargetRecipe(currenthandlers);
-        setRecipePage(recipeId.recipetype, recipeId.position);
+        setRecipePage(recipetype, Math.max(0, refIndex));
+
+        return refIndex;
     }
 
     public List<PositionedStack> getFocusedRecipeIngredients() {
-        final int recipesPerPage = getRecipesPerPage();
+        List<Integer> indices = getRecipeIndices();
 
-        for (int idx = page * recipesPerPage; idx < handler.numRecipes() && idx < (page + 1) * recipesPerPage; idx++) {
-            if (recipeInFocus(idx)) {
-                return handler.getIngredientStacks(idx);
+        for (int refIndex = 0; refIndex < indices.size(); refIndex++) {
+            final int recipeIndex = indices.get(refIndex);
+            if (recipeInFocus(refIndex, recipeIndex)) {
+                return handler.original.getIngredientStacks(recipeIndex);
             }
         }
 
@@ -341,18 +638,19 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     }
 
     public int prepareFocusedRecipeResultStackSize(ItemStack stackover) {
-        final int recipesPerPage = getRecipesPerPage();
+        List<Integer> indices = getRecipeIndices();
 
-        for (int idx = page * recipesPerPage; idx < handler.numRecipes() && idx < (page + 1) * recipesPerPage; idx++) {
-            if (recipeInFocus(idx)) {
-                final PositionedStack result = handler.getResultStack(idx);
+        for (int refIndex = 0; refIndex < indices.size(); refIndex++) {
+            final int recipeIndex = indices.get(refIndex);
+            if (recipeInFocus(refIndex, recipeIndex)) {
+                final PositionedStack result = handler.original.getResultStack(recipeIndex);
                 int stackSize = 0;
 
                 if (result != null && StackInfo.equalItemAndNBT(result.item, stackover, true)) {
                     stackSize += result.item.stackSize;
                 }
 
-                final List<PositionedStack> stacks = handler.getOtherStacks(idx);
+                final List<PositionedStack> stacks = handler.original.getOtherStacks(recipeIndex);
                 for (PositionedStack pStack : stacks) {
                     if (StackInfo.equalItemAndNBT(pStack.item, stackover, true)) {
                         stackSize += pStack.item.stackSize;
@@ -366,15 +664,16 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         return stackover.stackSize;
     }
 
-    protected boolean recipeInFocus(int idx) {
-        final PositionedStack result = handler.getResultStack(idx);
-        if (result != null && isMouseOver(result, idx)) {
+    protected boolean recipeInFocus(int refIndex, int recipeIndex) {
+        final PositionedStack result = handler.original.getResultStack(recipeIndex);
+
+        if (result != null && isMouseOver(result, refIndex)) {
             return true;
         }
 
-        final List<PositionedStack> stacks = handler.getOtherStacks(idx);
+        final List<PositionedStack> stacks = handler.original.getOtherStacks(recipeIndex);
         for (PositionedStack stack : stacks) {
-            if (isMouseOver(stack, idx)) {
+            if (isMouseOver(stack, refIndex)) {
                 return true;
             }
         }
@@ -387,29 +686,62 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     }
 
     public H getHandler() {
-        return handler;
+        return handler.original;
     }
 
     public List<Integer> getRecipeIndices() {
         final int recipesPerPage = getRecipesPerPage();
-        int minIndex = page * recipesPerPage;
-        int maxIndex = Math.min(handler.numRecipes(), (page + 1) * recipesPerPage);
+        final int minIndex = page * recipesPerPage;
+        final int maxIndex = Math.min(this.numRecipes(), (page + 1) * recipesPerPage);
+        final ArrayList<Integer> range = new ArrayList<>();
 
-        return IntStream.range(minIndex, maxIndex).boxed().collect(Collectors.toList());
+        for (int index = minIndex; index < maxIndex; index++) {
+            range.add(handler.ref(index));
+        }
+
+        return range;
+    }
+
+    private int numRecipes() {
+        return handler == null ? 0 : handler.numRecipes();
     }
 
     @Override
     public void keyTyped(char c, int i) {
-        if (i == Keyboard.KEY_ESCAPE) // esc
-        {
+
+        if (searchField.isVisible() && searchField.focused() && searchField.handleKeyPress(i, c)) {
+            return;
+        }
+
+        if (i == Keyboard.KEY_ESCAPE) { // esc
             mc.displayGuiScreen(firstGuiGeneral);
             NEICPH.sendRequestContainer();
             return;
         }
-        if (GuiContainerManager.getManager(this).lastKeyTyped(i, c)) return;
+
+        if (searchField.isVisible() && searchField.focused()) {
+            searchField.lastKeyTyped(i, c);
+            return;
+        }
+
+        if (GuiContainerManager.getManager(this).lastKeyTyped(i, c)) {
+            return;
+        }
 
         try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
-            for (int recipe : getRecipeIndices()) if (handler.keyTyped(this, c, i, recipe)) return;
+            for (int recipeIndex : getRecipeIndices()) {
+                if (handler.original.keyTyped(this, c, i, recipeIndex)) {
+                    return;
+                }
+            }
+
+            Point mouse = GuiDraw.getMousePosition();
+
+            for (GuiOverlayButton button : this.overlayButtons) {
+                if (button.contains(mouse.x, mouse.y)) {
+                    button.lastKeyTyped(this, c, i);
+                }
+            }
         }
 
         if (i == mc.gameSettings.keyBindInventory.getKeyCode()) {
@@ -429,18 +761,35 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     }
 
     @Override
-    protected void mouseClicked(int x, int y, int button) {
-        try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
-            for (int recipe : getRecipeIndices()) if (handler.mouseClicked(this, button, recipe)) return;
+    protected void mouseClicked(int mousex, int mousey, int button) {
+
+        if (!limitToOneRecipe && handler != null && handler.searchingAvailable()) {
+            if (toggleSearch.contains(mousex - guiLeft, mousey - guiTop)) {
+                toggleSearch.handleClick(mousex - guiLeft, mousey - guiTop, button);
+            } else if (searchField.contains(mousex - guiLeft, mousey - guiTop)) {
+                searchField.handleClick(mousex - guiLeft, mousey - guiTop, button);
+            } else {
+                searchField.onGuiClick(mousex - guiLeft, mousey - guiTop);
+            }
         }
 
-        if (recipeTabs.mouseClicked(x, y, button)) return;
+        try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
+            for (int recipeIndex : getRecipeIndices()) {
+                if (handler.original.mouseClicked(this, button, recipeIndex)) {
+                    return;
+                }
+            }
+        }
 
-        super.mouseClicked(x, y, button);
+        if (recipeTabs.mouseClicked(mousex, mousey, button)) {
+            return;
+        }
+
+        super.mouseClicked(mousex, mousey, button);
     }
 
     @Override
-    public void mouseScrolled(int i) {
+    public void mouseScrolled(int scroll) {
         // Height hacking is not necessary here since mouse scrolling is a new feature, added in
         // GTNH NEI. So no old mods will use this. Though not hacking the height here does mean that
         // the value of the height field will be different from in other mouseover methods, which
@@ -448,80 +797,134 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
         // First, invoke scroll handling over recipe handler tabbar. Makes sure it is not overwritten by recipe
         // handler-specific scroll behavior.
-        if (recipeTabs.mouseScrolled(i)) return;
+        if (recipeTabs.mouseScrolled(scroll)) return;
 
-        for (int recipe : getRecipeIndices()) if (handler.mouseScrolled(this, i, recipe)) return;
+        for (int recipeIndex : getRecipeIndices()) {
+            if (handler.original.mouseScrolled(this, scroll, recipeIndex)) {
+                return;
+            }
+        }
 
         // If shift is held, try switching to the next recipe handler. Replicates the GuiRecipeTabs.mouseScrolled()
         // without the checking for the cursor being inside the tabbar.
         if (NEIClientUtils.shiftKey()) {
-            if (i < 0) nextType();
-            else prevType();
+            if (scroll < 0) {
+                nextType();
+            } else {
+                prevType();
+            }
 
             return;
         }
 
         // Finally, if nothing else has handled scrolling, try changing to the next recipe page.
         if (new Rectangle(guiLeft, guiTop, xSize, ySize).contains(GuiDraw.getMousePosition())) {
-            if (i > 0) prevPage();
-            else nextPage();
-        }
-    }
-
-    @Override
-    protected void actionPerformed(GuiButton guibutton) {
-        super.actionPerformed(guibutton);
-        switch (guibutton.id) {
-            case 0:
-                prevType();
-                return;
-            case 1:
-                nextType();
-                return;
-            case 2:
+            if (scroll > 0) {
                 prevPage();
-                return;
-            case 3:
+            } else {
                 nextPage();
-                return;
-        }
-        if (overlayButtons != null && guibutton.id >= OVERLAY_BUTTON_ID_START
-                && guibutton.id < OVERLAY_BUTTON_ID_START + overlayButtons.length) {
-            overlayRecipe(
-                    page * getRecipesPerPage() + guibutton.id - OVERLAY_BUTTON_ID_START,
-                    NEIClientUtils.shiftKey());
+            }
         }
     }
 
     @Override
     public void updateScreen() {
         super.updateScreen();
-        updateAsTooltip();
-    }
-
-    /** updateScreen() that's safe to call when this isn't the currently open GUI */
-    public void updateAsTooltip() {
-        handler.onUpdate();
+        handler.original.onUpdate();
         refreshPage();
     }
 
     @Override
     public List<String> handleTooltip(GuiContainer gui, int mousex, int mousey, List<String> currenttip) {
+
         try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
-            for (int i : getRecipeIndices()) currenttip = handler.handleTooltip(this, currenttip, i);
+            for (int recipeIndex : getRecipeIndices()) {
+                currenttip = handler.original.handleTooltip(this, currenttip, recipeIndex);
+            }
+
+            for (GuiOverlayButton button : this.overlayButtons) {
+                if (button.contains(mousex, mousey)) {
+                    currenttip = button.handleTooltip(this, currenttip);
+                }
+            }
         }
+
         recipeTabs.handleTooltip(mousex, mousey, currenttip);
+
+        if (currenttip.isEmpty() && searchField.isVisible()
+                && new Rectangle(searchField.x + searchField.w, 15, 44, 16)
+                        .contains(mousex - guiLeft, mousey - guiTop)) {
+
+            final String s = String.format("%d/%d", page + 1, (this.numRecipes() - 1) / getRecipesPerPage() + 1);
+
+            if (fontRendererObj.getStringWidth(s) >= 45) {
+                currenttip.add(s);
+            }
+        }
+
         return currenttip;
     }
 
     @Override
-    public List<String> handleItemTooltip(GuiContainer gui, ItemStack stack, int mousex, int mousey,
+    public List<String> handleItemTooltip(GuiContainer gui, ItemStack itemstack, int mousex, int mousey,
             List<String> currenttip) {
+
         try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
-            for (int i : getRecipeIndices()) currenttip = handler.handleItemTooltip(this, stack, currenttip, i);
+            List<Integer> indices = getRecipeIndices();
+
+            for (int recipeIndex : indices) {
+                currenttip = handler.original.handleItemTooltip(this, itemstack, currenttip, recipeIndex);
+            }
+
+            if (NEIClientConfig.showCycledIngredientsTooltip()) {
+                PositionedStack focused = null;
+
+                for (int refIndex = 0; refIndex < indices.size(); refIndex++) {
+                    final int recipeIndex = indices.get(refIndex);
+
+                    if (itemstack != null && focused == null) {
+                        final List<PositionedStack> stacks = handler.original.getIngredientStacks(recipeIndex);
+
+                        for (PositionedStack pStack : stacks) {
+                            if (isMouseOver(pStack, refIndex)) {
+                                focused = pStack;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (focused == null || focused.items.length <= 1) {
+                    this.permutationTooltipLineHandler = null;
+                } else if (this.permutationTooltipLineHandler == null
+                        || this.permutationTooltipLineHandler.pStack != focused) {
+                            this.permutationTooltipLineHandler = PermutationTooltipLineHandler.getInstance(focused);
+                        }
+            } else if (this.permutationTooltipLineHandler != null) {
+                this.permutationTooltipLineHandler = null;
+            }
+
+        }
+
+        if (this.permutationTooltipLineHandler != null) {
+            currenttip.add(GuiDraw.TOOLTIP_HANDLER + GuiDraw.getTipLineId(this.permutationTooltipLineHandler));
         }
 
         return currenttip;
+    }
+
+    @Override
+    public Map<String, String> handleHotkeys(GuiContainer gui, int mousex, int mousey, Map<String, String> hotkeys) {
+
+        try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
+            for (GuiOverlayButton button : this.overlayButtons) {
+                if (button.contains(mousex, mousey)) {
+                    hotkeys = button.handleHotkeys(gui, mousex, mousey, hotkeys);
+                }
+            }
+        }
+
+        return hotkeys;
     }
 
     @Override
@@ -530,13 +933,11 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     }
 
     private void nextPage() {
-        page++;
-        if (page > (handler.numRecipes() - 1) / getRecipesPerPage()) page = 0;
+        changePage(1);
     }
 
     private void prevPage() {
-        page--;
-        if (page < 0) page = (handler.numRecipes() - 1) / getRecipesPerPage();
+        changePage(-1);
     }
 
     protected void nextType() {
@@ -547,32 +948,45 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         setRecipePage(--recipetype);
     }
 
-    protected void overlayRecipe(int recipe, final boolean shift) {
-        boolean moveItems = shift || !NEIClientConfig.requireShiftForOverlayRecipe();
-        if (handler == null || !handler.hasOverlay(firstGui, firstGui.inventorySlots, recipe)) {
-            mc.displayGuiScreen(firstGui);
+    protected void overlayRecipe(int recipeIndex, boolean shift) {
+
+        if (handler == null || !handler.original.hasOverlay(firstGui, firstGui.inventorySlots, recipeIndex)) {
             return;
         }
-        final IRecipeOverlayRenderer renderer = handler.getOverlayRenderer(firstGui, recipe);
-        final IOverlayHandler overlayHandler = handler.getOverlayHandler(firstGui, recipe);
 
-        mc.displayGuiScreen(firstGui);
-        if (renderer == null || moveItems) {
+        final boolean requireShiftForOverlayRecipe = NEIClientConfig.requireShiftForOverlayRecipe();
+        final IOverlayHandler overlayHandler = handler.original.getOverlayHandler(firstGui, recipeIndex);
+        final IRecipeOverlayRenderer renderer = handler.original.getOverlayRenderer(firstGui, recipeIndex);
+
+        if (renderer == null || !requireShiftForOverlayRecipe || shift) {
             if (overlayHandler != null) {
-                overlayHandler.overlayRecipe(firstGui, currenthandlers.get(recipetype), recipe, moveItems);
+                overlayHandler
+                        .overlayRecipe(firstGui, handler.original, recipeIndex, !requireShiftForOverlayRecipe || shift);
             }
         } else {
             LayoutManager.overlayRenderer = renderer;
         }
     }
 
+    protected void changePage(int shift) {
+        final int recipesPerPage = getRecipesPerPage();
+        final int numRecipes = this.numRecipes();
+
+        if (numRecipes > 0) {
+            final int numPages = (int) Math.ceil(numRecipes / (float) recipesPerPage);
+            this.page = Math.min(Math.max(0, this.page), numPages);
+            this.page = (numPages + this.page + shift) % numPages;
+        } else {
+            this.page = 0;
+        }
+    }
+
     public void refreshPage() {
-        RecipeCatalysts.updatePosition(ySize - BG_TOP_HEIGHT - (GuiRecipeCatalyst.fullBorder * 2));
+        changePage(0);
         refreshSlots();
         final int recipesPerPage = getRecipesPerPage();
-        final boolean multiplepages = handler.numRecipes() > recipesPerPage;
-
-        final int numRecipes = Math.min(handler.numRecipes() - (page * recipesPerPage), recipesPerPage);
+        final boolean multiplepages = this.numRecipes() > recipesPerPage;
+        final int numRecipes = Math.min(this.numRecipes() - (page * recipesPerPage), recipesPerPage);
 
         area.width = handlerInfo.getWidth();
         area.height = handlerInfo.getHeight() * numRecipes;
@@ -580,31 +994,31 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         area.y = guiTop - 4 + yShift;
         checkYShift();
 
-        nextpage.enabled = prevpage.enabled = multiplepages;
+        if (!limitToOneRecipe) {
+            RecipeCatalysts.updatePosition(ySize - BG_TOP_HEIGHT - (GuiRecipeCatalyst.fullBorder * 2));
+            toggleSearch.w = toggleSearch.h = 12;
+            toggleSearch.x = borderPadding + buttonWidth;
+            toggleSearch.y = 17;
 
-        if (firstGui == null) {
-            for (GuiButton overlay : overlayButtons) {
-                overlay.visible = false;
-            }
-        } else {
-            for (int i = 0; i < overlayButtons.length; i++) {
-                if (i >= numRecipes) {
-                    overlayButtons[i].visible = false;
-                } else {
-                    final int curRecipe = page * recipesPerPage + i;
-                    overlayButtons[i].visible = handler.hasOverlay(firstGui, firstGui.inventorySlots, curRecipe);
-                }
-            }
+            searchField.y = 16;
+            searchField.x = borderPadding + buttonWidth + toggleSearch.w - 1;
+            searchField.w = xSize - (borderPadding + buttonWidth) * 2 + 1 - toggleSearch.w - 45;
+            searchField.h = 14;
         }
 
+        nextpage.enabled = prevpage.enabled = multiplepages;
+
+        updateOverlayButtons();
         recipeTabs.refreshPage();
     }
 
     private void refreshSlots() {
         slotcontainer.inventorySlots.clear();
-        final int recipesPerPage = getRecipesPerPage();
-        for (int i = page * recipesPerPage; i < handler.numRecipes() && i < (page + 1) * recipesPerPage; i++) {
-            Point p = getRecipePosition(i);
+        final List<Integer> indices = getRecipeIndices();
+
+        for (int refIndex = 0; refIndex < indices.size(); refIndex++) {
+            int recipeIndex = indices.get(refIndex);
+            Point p = getRecipePosition(refIndex);
             // Legacy recipe handlers only expect a single paging widget at the top of the recipe screen, in contrast,
             // GTNH NEI moves the recipe paging widget from the bottom to the top, which means said legacy handlers will
             // position item slots 16px too high in the screen.
@@ -612,51 +1026,27 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
                 p.translate(0, 16);
             }
 
-            List<PositionedStack> stacks = handler.getIngredientStacks(i);
+            TemplateRecipeHandler.disableCycledIngredients = false;
+
+            List<PositionedStack> stacks = handler.original.getIngredientStacks(recipeIndex);
             for (PositionedStack stack : stacks) slotcontainer.addSlot(stack, p.x, p.y);
 
-            stacks = handler.getOtherStacks(i);
+            stacks = handler.original.getOtherStacks(recipeIndex);
             for (PositionedStack stack : stacks) slotcontainer.addSlot(stack, p.x, p.y);
 
-            PositionedStack result = handler.getResultStack(i);
+            PositionedStack result = handler.original.getResultStack(recipeIndex);
             if (result != null) slotcontainer.addSlot(result, p.x, p.y);
 
             if (!limitToOneRecipe) {
-                List<PositionedStack> catalysts = RecipeCatalysts.getRecipeCatalysts(handler);
+                List<PositionedStack> catalysts = RecipeCatalysts.getRecipeCatalysts(handler.original);
                 for (PositionedStack catalyst : catalysts) {
                     int xOffset = -GuiRecipeCatalyst.ingredientSize + 1;
                     int yOffset = BG_TOP_Y + GuiRecipeCatalyst.fullBorder;
                     slotcontainer.addSlot(catalyst, xOffset, yOffset);
                 }
             }
-        }
-    }
 
-    private int itemPresenceCacheRecipe = -1;
-    private ArrayList<Boolean> itemPresenceCacheSlots;
-
-    private void updateItemPresenceCache(int recipe) {
-        if (itemPresenceCacheSlots == null) {
-            itemPresenceCacheSlots = new ArrayList<>();
-        }
-        itemPresenceCacheRecipe = recipe;
-        itemPresenceCacheSlots.clear();
-        List<PositionedStack> ingredients = handler.getIngredientStacks(recipe);
-        ArrayList<ItemStack> invStacks = ((List<Slot>) firstGui.inventorySlots.inventorySlots).stream()
-                .filter(
-                        s -> s != null && s.getStack() != null
-                                && s.getStack().stackSize > 0
-                                && s.isItemValid(s.getStack())
-                                && s.canTakeStack(mc.thePlayer))
-                .map(s -> s.getStack().copy()).collect(Collectors.toCollection(ArrayList::new));
-        for (PositionedStack stack : ingredients) {
-            Optional<ItemStack> used = invStacks.stream().filter(is -> is.stackSize > 0 && stack.contains(is))
-                    .findFirst();
-            itemPresenceCacheSlots.add(used.isPresent());
-            if (used.isPresent()) {
-                ItemStack is = used.get();
-                is.stackSize -= 1;
-            }
+            TemplateRecipeHandler.disableCycledIngredients = true;
         }
     }
 
@@ -664,44 +1054,90 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     public void drawGuiContainerForegroundLayer(int mouseX, int mouseY) {
         GuiContainerManager.enable2DRender();
         final int recipesPerPage = getRecipesPerPage();
-        final int ySkip = limitToOneRecipe ? 25 : 0;
-        if (!limitToOneRecipe) {
-            String s = handler.getRecipeName().trim();
-            fontRendererObj.drawStringWithShadow(s, (xSize - fontRendererObj.getStringWidth(s)) / 2, 5, 0xffffff);
-            s = NEIClientUtils.translate("recipe.page", page + 1, (handler.numRecipes() - 1) / recipesPerPage + 1);
-            fontRendererObj.drawStringWithShadow(s, (xSize - fontRendererObj.getStringWidth(s)) / 2, 19, 0xffffff);
-        }
-        final boolean drawItemPresence = NEIClientConfig.isJEIStyleItemPresenceOverlayVisible();
+        final int ySkip = limitToOneRecipe ? BG_TOP_HEIGHT + 1 : 32;
 
-        GL11.glPushMatrix();
-        GL11.glTranslatef(5, 32 - ySkip + yShift, 0);
+        if (!limitToOneRecipe) {
+            String s = handler.original.getRecipeName().trim();
+            fontRendererObj.drawStringWithShadow(s, (xSize - fontRendererObj.getStringWidth(s)) / 2, 5, 0xffffff);
+
+            if (handler.searchingAvailable()) {
+                toggleSearch.draw(mouseX - guiLeft, mouseY - guiTop);
+            }
+
+            if (searchField.isVisible()) {
+                searchField.draw(mouseX - guiLeft, mouseY - guiTop);
+                s = NEIClientUtils.cropText(
+                        fontRendererObj,
+                        String.format("%d/%d", page + 1, (this.numRecipes() - 1) / recipesPerPage + 1),
+                        45);
+                fontRendererObj.drawStringWithShadow(
+                        s,
+                        searchField.x + searchField.w + (44 - fontRendererObj.getStringWidth(s)) / 2,
+                        19,
+                        0xffffff);
+            } else {
+                s = NEIClientUtils.translate("recipe.page", page + 1, (this.numRecipes() - 1) / recipesPerPage + 1);
+                fontRendererObj.drawStringWithShadow(s, (xSize - fontRendererObj.getStringWidth(s)) / 2, 19, 0xffffff);
+            }
+
+        }
+
         try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
-            for (int i = page * recipesPerPage; i < handler.numRecipes() && i < (page + 1) * recipesPerPage; i++) {
-                handler.drawForeground(i);
-                if (drawItemPresence && (isMouseOverOverlayButton(i - page * recipesPerPage) || limitToOneRecipe)
-                        && firstGui != null
-                        && firstGui.inventorySlots != null) {
-                    List<PositionedStack> ingredients = handler.getIngredientStacks(i);
-                    if (itemPresenceCacheRecipe != i || itemPresenceCacheSlots == null
-                            || itemPresenceCacheSlots.size() != ingredients.size()) {
-                        updateItemPresenceCache(i);
-                    }
-                    for (int j = 0; j < ingredients.size(); j++) {
-                        PositionedStack stack = ingredients.get(j);
-                        boolean isPresent = itemPresenceCacheSlots.get(j);
-                        LayoutManager.drawItemPresenceOverlay(stack.relx, stack.rely, isPresent);
+            List<Integer> indices = getRecipeIndices();
+
+            GL11.glPushMatrix();
+            GL11.glTranslatef(5, ySkip + yShift, 0);
+
+            for (int refIndex = 0; refIndex < indices.size(); refIndex++) {
+                int recipeIndex = indices.get(refIndex);
+
+                handler.original.drawForeground(recipeIndex);
+
+                if (limitToOneRecipe) {
+                    GuiOverlayButton overlayButton = Arrays.asList(this.overlayButtons).stream()
+                            .filter(b -> b.recipeIndex == recipeIndex).findAny().orElse(null);
+
+                    if (overlayButton != null && overlayButton.enabled) {
+                        final String overlayKeyName = NEIClientConfig.getKeyName("gui.overlay_use");
+
+                        if (overlayKeyName != null) {
+                            fontRendererObj.drawStringWithShadow(
+                                    EnumChatFormatting.ITALIC + overlayKeyName,
+                                    xSize - borderPadding - fontRendererObj.getStringWidth(overlayKeyName) - 10,
+                                    handlerInfo.getHeight() - fontRendererObj.FONT_HEIGHT,
+                                    0xffffff);
+                        }
+
+                        overlayButton.drawItemPresenceOverlay();
                     }
                 }
+
                 GL11.glTranslatef(0, handlerInfo.getHeight(), 0);
             }
+
+            GL11.glPopMatrix();
+
+            GL11.glPushMatrix();
+            GL11.glTranslatef(5, ySkip + yShift, 0);
+
+            if (!limitToOneRecipe && NEIClientConfig.itemPresenceOverlay() > 0) {
+                for (GuiOverlayButton button : this.overlayButtons) {
+                    if (button.contains(mouseX, mouseY)) {
+                        GL11.glTranslatef(0, handlerInfo.getHeight() * indices.indexOf(button.recipeIndex), 0);
+                        button.drawItemPresenceOverlay();
+                        break;
+                    }
+                }
+            }
+
+            GL11.glPopMatrix();
         }
-        GL11.glPopMatrix();
+
     }
 
     @Override
     public void drawGuiContainerBackgroundLayer(float f, int mouseX, int mouseY) {
-        final int recipesPerPage = getRecipesPerPage();
-        final int ySkip = limitToOneRecipe ? 25 : 0;
+        final int ySkip = limitToOneRecipe ? BG_TOP_HEIGHT + 1 : 32;
         GL11.glColor4f(1, 1, 1, 1);
 
         drawBackgroundTiled(guiLeft, guiTop);
@@ -730,24 +1166,26 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         }
 
         GL11.glPushMatrix();
-        GL11.glTranslatef(guiLeft + 5, guiTop - ySkip + 32 + yShift, 0);
+        GL11.glTranslatef(guiLeft + 5, guiTop + ySkip + yShift, 0);
         try (CompatibilityHacks compatibilityHacks = new CompatibilityHacks()) {
-            for (int i = page * recipesPerPage; i < handler.numRecipes() && i < (page + 1) * recipesPerPage; i++) {
-                handler.drawBackground(i);
+
+            for (int recipeIndex : getRecipeIndices()) {
+                handler.original.drawBackground(recipeIndex);
                 GL11.glTranslatef(0, handlerInfo.getHeight(), 0);
             }
+
         }
         GL11.glPopMatrix();
     }
 
     private void drawBackgroundTiled(int j, int k) {
+        final int handlerHeight = getWidgetSize().height;
+
         // Draw the top
-        final int ySkip = limitToOneRecipe ? 25 : 0;
-        final int handlerHeight = limitToOneRecipe ? getHeightAsWidget() : ySize;
         bgTop.draw(j, k + BG_TOP_Y);
 
         // Maybe Tile the middle
-        final int tiledHeight = handlerHeight - ySkip - BG_TOP_HEIGHT - BG_BOTTOM_HEIGHT;
+        final int tiledHeight = handlerHeight - BG_TOP_HEIGHT - BG_BOTTOM_HEIGHT;
 
         if (tiledHeight > 0) {
             final int yTileCount = tiledHeight / BG_MIDDLE_HEIGHT;
@@ -764,11 +1202,18 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         }
 
         // Draw the bottom
-        bgBottom.draw(j, k + handlerHeight - ySkip - BG_BOTTOM_HEIGHT);
+        bgBottom.draw(j, k + handlerHeight - BG_BOTTOM_HEIGHT);
     }
 
-    public int getHeightAsWidget() {
-        return (handlerInfo == null) ? ySize : (handlerInfo.getHeight() + 56);
+    public Dimension getWidgetSize() {
+
+        if (handlerInfo == null) {
+            return new Dimension(xSize, ySize);
+        }
+
+        final int handlerHeight = limitToOneRecipe ? handlerInfo.getHeight() + yShift + BG_TOP_HEIGHT + BG_BOTTOM_HEIGHT
+                : ySize;
+        return new Dimension(xSize, handlerHeight);
     }
 
     @Override
@@ -781,26 +1226,13 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         return firstGuiGeneral;
     }
 
-    public boolean isMouseOver(PositionedStack stack, int recipe) {
-        Slot stackSlot = slotcontainer
-                .getSlotWithStack(stack, getRecipePosition(recipe).x, getRecipePosition(recipe).y);
+    public boolean isMouseOver(PositionedStack stack, int refIndex) {
+        Point p = getRecipePosition(refIndex);
         Point mousepos = GuiDraw.getMousePosition();
+        Slot stackSlot = slotcontainer.getSlotWithStack(stack, p.x, p.y);
         Slot mouseoverSlot = getSlotAtPosition(mousepos.x, mousepos.y);
 
         return stackSlot == mouseoverSlot;
-    }
-
-    private boolean isMouseOverOverlayButton(int buttonId) {
-        if (buttonId >= 0 && buttonId < overlayButtons.length) {
-            GuiButton button = overlayButtons[buttonId];
-            Point mousePos = GuiDraw.getMousePosition();
-            return button.visible && mousePos.x >= button.xPosition
-                    && mousePos.y >= button.yPosition
-                    && mousePos.x < button.xPosition + button.width
-                    && mousePos.y < button.yPosition + button.height;
-        } else {
-            return false;
-        }
     }
 
     private int getRecipesPerPage() {
@@ -808,13 +1240,19 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
     }
 
     private int getRecipesPerPage(HandlerInfo handlerInfo) {
-        if (handlerInfo != null) return Math.max(
-                Math.min(((ySize - (buttonHeight * 3)) / handlerInfo.getHeight()), handlerInfo.getMaxRecipesPerPage()),
-                1);
-        else return (handler.recipiesPerPage());
+        if (handlerInfo != null) {
+            return Math.max(
+                    Math.min(
+                            ((ySize - (buttonHeight * 3)) / handlerInfo.getHeight()),
+                            handlerInfo.getMaxRecipesPerPage()),
+                    1);
+        } else if (handler != null) {
+            return handler.original.recipiesPerPage();
+        }
+        return 1;
     }
 
-    public Point getRecipePosition(int recipe) {
+    public Point getRecipePosition(int refIndex) {
         // Legacy recipe handlers using the height hack might use getRecipePosition in combination with guiTop/height to
         // position certain elements like tooltips. Since guiTop is moved down by 16px during height hacking, we need to
         // reduce the vertical shift here to 16px instead of 32px.
@@ -822,7 +1260,7 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
                 5,
                 (isHeightHackApplied ? 16 : 32) - (limitToOneRecipe ? 25 : 0)
                         + yShift
-                        + ((recipe % getRecipesPerPage()) * handlerInfo.getHeight()));
+                        + ((refIndex % getRecipesPerPage()) * handlerInfo.getHeight()));
     }
 
     public abstract ArrayList<H> getCurrentRecipeHandlers();
@@ -844,6 +1282,12 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
 
     @Override
     public boolean handleDragNDrop(GuiContainer gui, int mousex, int mousey, ItemStack draggedStack, int button) {
+
+        if (searchField.isVisible() && searchField.contains(mousex - guiLeft, mousey - guiTop)) {
+            searchField.setText(SearchField.getEscapedSearchText(draggedStack));
+            return true;
+        }
+
         return false;
     }
 
@@ -853,13 +1297,16 @@ public abstract class GuiRecipe<H extends IRecipeHandler> extends GuiContainer i
         return area.intersects(x, y, w, h);
     }
 
-    protected static BookmarkRecipeId getCurrentRecipe(GuiScreen gui) {
+    protected static BookmarkRecipeId getCurrentRecipeId(GuiScreen gui) {
 
-        if (gui instanceof GuiRecipe) {
-            GuiRecipe<?> gRecipe = (GuiRecipe<?>) gui;
+        if (gui instanceof GuiRecipe && ((GuiRecipe<?>) gui).handler.numRecipes() > 0) {
+            final GuiRecipe<?> gRecipe = (GuiRecipe<?>) gui;
+            final List<Integer> indices = gRecipe.getRecipeIndices();
+            final int curRecipe = indices.isEmpty() ? 0 : indices.get(0);
+
             return new BookmarkRecipeId(
                     gRecipe.handlerInfo.getHandlerName(),
-                    gRecipe.getHandler().getIngredientStacks(gRecipe.page * gRecipe.getRecipesPerPage()));
+                    gRecipe.handler.original.getIngredientStacks(curRecipe));
         }
 
         return null;

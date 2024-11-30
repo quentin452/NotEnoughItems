@@ -4,13 +4,17 @@ import static codechicken.lib.gui.GuiDraw.drawMultilineTip;
 import static codechicken.lib.gui.GuiDraw.fontRenderer;
 import static codechicken.lib.gui.GuiDraw.getMousePosition;
 import static codechicken.lib.gui.GuiDraw.renderEngine;
+import static codechicken.nei.NEIClientUtils.translate;
 
 import java.awt.Point;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.StringJoiner;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
 
@@ -22,6 +26,9 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.entity.RenderItem;
+import net.minecraft.client.resources.IResourceManager;
+import net.minecraft.client.resources.IResourceManagerReloadListener;
+import net.minecraft.client.resources.SimpleReloadableResourceManager;
 import net.minecraft.init.Blocks;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
@@ -31,14 +38,23 @@ import net.minecraftforge.fluids.FluidStack;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
-import org.lwjgl.opengl.GL12;
 
 import codechicken.lib.gui.GuiDraw;
+import codechicken.nei.ItemStackSet;
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.NEIClientUtils;
 import codechicken.nei.recipe.StackInfo;
+import codechicken.nei.util.ReadableNumberConverter;
 
 public class GuiContainerManager {
+
+    private static class ResourcePackReloaded implements IResourceManagerReloadListener {
+
+        @Override
+        public void onResourceManagerReload(IResourceManager p_110549_1_) {
+            renderingErrorItems.clear();
+        }
+    }
 
     public GuiContainer window;
 
@@ -138,13 +154,15 @@ public class GuiContainerManager {
             namelist = stack.getTooltip(
                     Minecraft.getMinecraft().thePlayer,
                     includeHandlers && Minecraft.getMinecraft().gameSettings.advancedItemTooltips);
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+            namelist = new ArrayList<>();
+        }
 
-        if (namelist == null) namelist = new ArrayList<>();
-
-        if (namelist.size() == 0) namelist.add("Unnamed");
-
-        if (namelist.get(0) == null || namelist.get(0).equals("")) namelist.set(0, "Unnamed");
+        if (namelist.isEmpty()) {
+            namelist.add("Unnamed");
+        } else if (namelist.get(0) == null || namelist.get(0).isEmpty()) {
+            namelist.set(0, "Unnamed");
+        }
 
         if (includeHandlers) {
             for (IContainerTooltipHandler handler : tooltipHandlers) {
@@ -217,8 +235,17 @@ public class GuiContainerManager {
      * @return The first line of the multiline display name.
      */
     public static String itemDisplayNameShort(ItemStack itemstack) {
-        List<String> list = itemDisplayNameMultiline(itemstack, null, false);
-        return list.get(0);
+
+        try {
+            List<String> namelist = itemstack.getTooltip(Minecraft.getMinecraft().thePlayer, false);
+
+            if (!namelist.isEmpty() && !"".equals(namelist.get(0))) {
+                return itemstack.getRarity().rarityColor.toString() + namelist.get(0) + EnumChatFormatting.RESET;
+            }
+
+        } catch (Throwable ignored) {}
+
+        return "Unnamed";
     }
 
     /**
@@ -228,103 +255,126 @@ public class GuiContainerManager {
      * @param itemstack The stack to get the name for
      * @return The multiline display name of this item separated by '#'
      */
+    @Deprecated
     public static String concatenatedDisplayName(ItemStack itemstack, boolean includeHandlers) {
         List<String> list = itemDisplayNameMultiline(itemstack, null, includeHandlers);
-        StringBuilder sb = new StringBuilder();
-        boolean first = true;
+        StringJoiner sb = new StringJoiner("#");
+
         for (String name : list) {
-            if (first) {
-                first = false;
-            } else {
-                sb.append("#");
+            if (!name.isEmpty()) {
+                sb.add(name);
             }
-            sb.append(name);
         }
+
         return EnumChatFormatting.getTextWithoutFormattingCodes(sb.toString());
     }
 
-    public static void drawItem(int i, int j, ItemStack itemstack) {
-        drawItem(i, j, itemstack, false);
+    public static void drawItem(int offsetX, int offsetY, ItemStack itemstack) {
+        drawItem(offsetX, offsetY, itemstack, false);
     }
 
-    public static void drawItem(int i, int j, ItemStack itemstack, boolean smallAmount) {
-        drawItem(i, j, itemstack, smallAmount, null);
+    public static void drawItem(int offsetX, int offsetY, ItemStack itemstack, boolean smallAmount) {
+        drawItem(offsetX, offsetY, itemstack, smallAmount, null);
     }
 
-    public static void drawItem(int i, int j, ItemStack itemstack, boolean smallAmount, String stackSize) {
-        drawItem(i, j, itemstack, getFontRenderer(itemstack), smallAmount, stackSize);
+    public static void drawItem(int offsetX, int offsetY, ItemStack itemstack, boolean smallAmount, String quantity) {
+        drawItem(offsetX, offsetY, itemstack, getFontRenderer(itemstack), smallAmount, quantity);
     }
 
-    public static void drawItem(int i, int j, ItemStack itemstack, FontRenderer fontRenderer) {
-        drawItem(i, j, itemstack, fontRenderer, false, null);
+    public static void drawItem(int offsetX, int offsetY, ItemStack itemstack, FontRenderer fontRenderer) {
+        drawItem(offsetX, offsetY, itemstack, fontRenderer, false, null);
     }
 
     private static int modelviewDepth = -1;
     private static final HashSet<String> stackTraces = new HashSet<>();
+    private static final ItemStackSet renderingErrorItems = new ItemStackSet();
 
-    public static void drawItem(int i, int j, ItemStack itemstack, FontRenderer fontRenderer, boolean smallAmount,
-            String stackSize) {
-        enable3DRender();
-        // for lighting correction
-        boolean glRescale = GL11.glGetBoolean(GL12.GL_RESCALE_NORMAL);
+    public static void drawItem(int offsetX, int offsetY, ItemStack itemstack, FontRenderer fontRenderer,
+            boolean smallAmount, String quantity) {
 
-        float zLevel = drawItems.zLevel += 100F;
-        try {
-            drawItems.renderItemAndEffectIntoGUI(fontRenderer, renderEngine, itemstack, i, j);
+        safeItemRenderContext(itemstack, offsetX, offsetY, fontRenderer, () -> {
+            float scale = smallAmount ? 0.5f : 1f;
+            String stackSize = quantity;
 
             if (stackSize == null) {
-                stackSize = itemstack.stackSize > 1 ? String.valueOf(itemstack.stackSize) : "";
-            }
+                if (itemstack.stackSize > 1) {
+                    stackSize = ReadableNumberConverter.INSTANCE.toWideReadableForm(itemstack.stackSize);
 
-            if (smallAmount) {
+                    if (stackSize.length() == 3) {
+                        scale = 0.8f;
+                    } else if (stackSize.length() == 4) {
+                        scale = 0.6f;
+                    } else if (stackSize.length() > 4) {
+                        scale = 0.5f;
+                    }
 
-                if (!stackSize.isEmpty()) {
-                    drawBigStackSize(i, j, stackSize);
+                } else {
+                    stackSize = "";
                 }
-
-                // stackSize = "". it needed for correct draw item with alpha and blend
-                drawItems.renderItemOverlayIntoGUI(fontRenderer, renderEngine, itemstack, i, j, "");
-            } else {
-                drawItems.renderItemOverlayIntoGUI(fontRenderer, renderEngine, itemstack, i, j, stackSize);
             }
 
-            if (!checkMatrixStack()) throw new IllegalStateException("Modelview matrix stack too deep");
-            if (Tessellator.instance.isDrawing) throw new IllegalStateException("Still drawing");
-        } catch (Exception e) {
-            NEIClientUtils.reportErrorBuffered(e, stackTraces, itemstack);
+            drawItems.renderItemAndEffectIntoGUI(fontRenderer, renderEngine, itemstack, offsetX, offsetY);
 
-            restoreMatrixStack();
-            if (Tessellator.instance.isDrawing) Tessellator.instance.draw();
+            if (scale != 1f && !stackSize.isEmpty()) {
+                drawBigStackSize(offsetX, offsetY, stackSize, scale);
+                stackSize = "";
+            }
 
-            drawItems.zLevel = zLevel;
-            drawItems.renderItemIntoGUI(fontRenderer, renderEngine, new ItemStack(Blocks.fire), i, j);
-        }
-
-        if (glRescale) {
-            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
-        } else {
-            GL11.glDisable(GL12.GL_RESCALE_NORMAL);
-        }
-
-        enable2DRender();
-        drawItems.zLevel = zLevel - 100;
+            drawItems.renderItemOverlayIntoGUI(fontRenderer, renderEngine, itemstack, offsetX, offsetY, stackSize);
+        });
     }
 
     // copy from appeng.client.render.AppEngRenderItem
-    protected static void drawBigStackSize(int offsetX, int offsetY, String stackSize) {
-        final float scaleFactor = fontRenderer.getUnicodeFlag() ? 0.85f : 0.5f;
-        final float inverseScaleFactor = 1.0f / scaleFactor;
+    protected static void drawBigStackSize(int offsetX, int offsetY, String stackSize, float scale) {
+        final float inverseScaleFactor = 1.0f / scale;
 
         enable2DRender();
-        GL11.glScaled(scaleFactor, scaleFactor, scaleFactor);
+        GL11.glScaled(scale, scale, scale);
 
-        final int X = (int) (((float) offsetX + 16.0f - fontRenderer.getStringWidth(stackSize) * scaleFactor)
-                * inverseScaleFactor);
-        final int Y = (int) (((float) offsetY + 16.0f - 7.0f * scaleFactor) * inverseScaleFactor);
+        final int X = (int) ((offsetX + 16.0f - fontRenderer.getStringWidth(stackSize) * scale) * inverseScaleFactor);
+        final int Y = (int) ((offsetY + 16.0f - 7.0f * scale) * inverseScaleFactor);
         fontRenderer.drawStringWithShadow(stackSize, X, Y, 16777215);
 
         GL11.glScaled(inverseScaleFactor, inverseScaleFactor, inverseScaleFactor);
         enable3DRender();
+    }
+
+    private static void safeItemRenderContext(ItemStack stack, int x, int y, FontRenderer fontRenderer,
+            Runnable callback) {
+        float zLevel = drawItems.zLevel += 100F;
+        GL11.glPushAttrib(GL11.GL_ALL_ATTRIB_BITS);
+        enable3DRender();
+
+        if (!renderingErrorItems.contains(stack)) {
+            try {
+                callback.run();
+
+                if (!checkMatrixStack()) throw new IllegalStateException("Modelview matrix stack too deep");
+                if (Tessellator.instance.isDrawing) throw new IllegalStateException("Still drawing");
+            } catch (Exception e) {
+                NEIClientUtils.reportErrorBuffered(e, stackTraces, stack);
+
+                restoreMatrixStack();
+                if (Tessellator.instance.isDrawing) Tessellator.instance.draw();
+
+                drawItems.zLevel = zLevel;
+                drawItems.renderItemIntoGUI(fontRenderer, renderEngine, new ItemStack(Blocks.fire), x, y);
+                renderingErrorItems.add(stack);
+            }
+        } else {
+            drawItems.renderItemIntoGUI(fontRenderer, renderEngine, new ItemStack(Blocks.fire), x, y);
+        }
+
+        GL11.glPopAttrib();
+        drawItems.zLevel = zLevel - 100;
+    }
+
+    public static void registerReloadResourceListener() {
+        if (Minecraft.getMinecraft().getResourceManager() instanceof SimpleReloadableResourceManager) {
+            SimpleReloadableResourceManager manager = (SimpleReloadableResourceManager) Minecraft.getMinecraft()
+                    .getResourceManager();
+            manager.registerReloadListener(new ResourcePackReloaded());
+        }
     }
 
     public static void enableMatrixStackLogging() {
@@ -490,6 +540,7 @@ public class GuiContainerManager {
 
     public void renderToolTips(int mousex, int mousey) {
         List<String> tooltip = new LinkedList<>();
+        Map<String, String> hotkeys = new HashMap<>();
         FontRenderer font = GuiDraw.fontRenderer;
 
         synchronized (instanceTooltipHandlers) {
@@ -511,13 +562,49 @@ public class GuiContainerManager {
             }
         }
 
-        if (tooltip.size() > 0) tooltip.set(0, tooltip.get(0) + GuiDraw.TOOLTIP_LINESPACE); // add space after 'title'
+        if (!tooltip.isEmpty()) tooltip.set(0, tooltip.get(0) + GuiDraw.TOOLTIP_LINESPACE); // add space after 'title'
+
+        synchronized (instanceTooltipHandlers) {
+            for (IContainerTooltipHandler handler : instanceTooltipHandlers) {
+                hotkeys = handler.handleHotkeys(window, mousex, mousey, hotkeys);
+            }
+        }
+
+        if (!hotkeys.isEmpty()) {
+            List<String> hotkeystips = new ArrayList<>();
+
+            if (!NEIClientUtils.altKey()) {
+                hotkeystips.add(
+                        EnumChatFormatting.GRAY
+                                + translate("showHotkeys", EnumChatFormatting.GOLD + "ALT" + EnumChatFormatting.GRAY));
+            } else {
+
+                for (Map.Entry<String, String> entry : hotkeys.entrySet()) {
+                    hotkeystips.add(getHotkeyTip(entry.getKey(), entry.getValue()));
+                }
+
+                hotkeystips.sort((a, b) -> Integer.compare(a.indexOf(" - "), b.indexOf(" - ")));
+                hotkeystips.set(
+                        hotkeystips.size() - 1,
+                        hotkeystips.get(hotkeystips.size() - 1) + GuiDraw.TOOLTIP_LINESPACE);
+            }
+
+            if (tooltip.isEmpty()) {
+                tooltip.addAll(hotkeystips);
+            } else {
+                tooltip.addAll(1, hotkeystips);
+            }
+        }
 
         drawPagedTooltip(font, mousex + 12, mousey - 12, tooltip);
 
         for (IContainerDrawHandler drawHandler : drawHandlers) {
             drawHandler.postRenderTooltips(window, mousex, mousey, tooltip);
         }
+    }
+
+    private String getHotkeyTip(String key, String message) {
+        return EnumChatFormatting.GOLD + key + EnumChatFormatting.GRAY + " - " + message + EnumChatFormatting.RESET;
     }
 
     private static int tooltipPage;
@@ -532,7 +619,7 @@ public class GuiContainerManager {
                             "inventory.tooltip.page",
                             tooltipPage + 1,
                             tooltips.size(),
-                            NEIClientConfig.getKeyName(NEIClientConfig.getKeyBinding("gui.next_tooltip"), true)));
+                            NEIClientConfig.getKeyName("gui.next_tooltip")));
         }
         drawMultilineTip(font, x, y, tooltips.get(tooltipPage));
     }
@@ -563,6 +650,7 @@ public class GuiContainerManager {
     }
 
     public static boolean shouldShowTooltip(GuiContainer window) {
+        if (window == null) return false;
         for (IContainerObjectHandler handler : objectHandlers) if (!handler.shouldShowTooltip(window)) return false;
 
         return window.mc.thePlayer.inventory.getItemStack() == null;
@@ -644,38 +732,17 @@ public class GuiContainerManager {
      * Delegate for changing item rendering for certain slots. Eg. Shrinking text for large itemstacks
      */
     public void drawSlotItem(Slot slot, ItemStack stack, int x, int y, String quantity) {
-        // for lighting correction
-        boolean glRescale = GL11.glGetBoolean(GL12.GL_RESCALE_NORMAL);
-        float zLevel = drawItems.zLevel += 100F;
 
-        try {
-            if (window instanceof IGuiSlotDraw) {
-                ((IGuiSlotDraw) window).drawSlotItem(slot, stack, x, y, quantity);
-            } else {
-
-                if (quantity == null) {
-                    quantity = stack != null && stack.stackSize > 1 ? String.valueOf(stack.stackSize) : "";
-                }
-
-                drawItems.renderItemAndEffectIntoGUI(fontRenderer, renderEngine, stack, x, y);
-                drawItems.renderItemOverlayIntoGUI(fontRenderer, renderEngine, stack, x, y, quantity);
-            }
-        } catch (Exception e) {
-            NEIClientUtils.reportErrorBuffered(e, stackTraces, stack);
-
-            restoreMatrixStack();
-            if (Tessellator.instance.isDrawing) Tessellator.instance.draw();
-
-            drawItems.zLevel = zLevel;
-            drawItems.renderItemIntoGUI(fontRenderer, renderEngine, new ItemStack(Blocks.fire), x, y);
+        if (window instanceof IGuiSlotDraw) {
+            safeItemRenderContext(
+                    stack,
+                    x,
+                    y,
+                    fontRenderer,
+                    () -> ((IGuiSlotDraw) window).drawSlotItem(slot, stack, x, y, quantity));
+        } else if (stack != null) {
+            drawItem(x, y, stack, false, quantity);
         }
-
-        if (glRescale) {
-            GL11.glEnable(GL12.GL_RESCALE_NORMAL);
-        } else {
-            GL11.glDisable(GL12.GL_RESCALE_NORMAL);
-        }
-        drawItems.zLevel = zLevel - 100;
     }
 
     /**

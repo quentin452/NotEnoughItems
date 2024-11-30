@@ -1,20 +1,12 @@
 package codechicken.nei.api;
 
-import codechicken.core.featurehack.GameDataManipulator;
-import codechicken.nei.*;
-import codechicken.nei.config.ArrayDumper;
-import codechicken.nei.config.HandlerDumper;
-import codechicken.nei.config.ItemPanelDumper;
-import codechicken.nei.config.RegistryDumper;
-import codechicken.nei.guihook.GuiContainerManager;
-import codechicken.nei.recipe.BrewingRecipeHandler;
-import codechicken.nei.recipe.RecipeItemInputHandler;
-import com.google.common.collect.LinkedListMultimap;
-import cpw.mods.fml.common.FMLCommonHandler;
-import cpw.mods.fml.common.ModContainer;
-import cpw.mods.fml.common.registry.GameRegistry;
-import cpw.mods.fml.common.registry.GameRegistry.UniqueIdentifier;
-import fr.iamacat.optimizationsandtweaks.utils.agrona.collections.Object2ObjectHashMap;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map.Entry;
+
 import net.minecraft.block.Block;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.creativetab.CreativeTabs;
@@ -27,7 +19,15 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.inventory.Slot;
-import net.minecraft.item.*;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemArmor;
+import net.minecraft.item.ItemAxe;
+import net.minecraft.item.ItemFood;
+import net.minecraft.item.ItemHoe;
+import net.minecraft.item.ItemPickaxe;
+import net.minecraft.item.ItemSpade;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemSword;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.MovingObjectPosition;
@@ -38,8 +38,37 @@ import net.minecraftforge.common.BiomeDictionary;
 import net.minecraftforge.common.IShearable;
 import net.minecraftforge.oredict.OreDictionary;
 
-import java.util.*;
-import java.util.Map.Entry;
+import com.google.common.collect.ArrayListMultimap;
+
+import codechicken.core.featurehack.GameDataManipulator;
+import codechicken.nei.InfiniteStackSizeHandler;
+import codechicken.nei.InfiniteToolHandler;
+import codechicken.nei.ItemList;
+import codechicken.nei.ItemList.AnyMultiItemFilter;
+import codechicken.nei.ItemList.PatternItemFilter;
+import codechicken.nei.ItemMobSpawner;
+import codechicken.nei.ItemStackMap;
+import codechicken.nei.ItemStackSet;
+import codechicken.nei.NEIClientConfig;
+import codechicken.nei.PopupInputHandler;
+import codechicken.nei.PresetsList;
+import codechicken.nei.SearchField.SearchParserProvider;
+import codechicken.nei.SearchTokenParser.SearchMode;
+import codechicken.nei.config.ArrayDumper;
+import codechicken.nei.config.HandlerDumper;
+import codechicken.nei.config.ItemPanelDumper;
+import codechicken.nei.config.RegistryDumper;
+import codechicken.nei.guihook.GuiContainerManager;
+import codechicken.nei.recipe.BrewingRecipeHandler;
+import codechicken.nei.recipe.RecipeItemInputHandler;
+import codechicken.nei.search.IdentifierFilter;
+import codechicken.nei.search.ModNameFilter;
+import codechicken.nei.search.OreDictionaryFilter;
+import codechicken.nei.search.TooltipFilter;
+import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.ModContainer;
+import cpw.mods.fml.common.registry.GameRegistry;
+import cpw.mods.fml.common.registry.GameRegistry.UniqueIdentifier;
 
 /**
  * This is an internal class for storing information about items, to be accessed by the API
@@ -52,53 +81,25 @@ public class ItemInfo {
         FOOTER
     }
 
-    public static final LinkedListMultimap<Layout, IHighlightHandler> highlightHandlers = LinkedListMultimap.create();
+    public static final ArrayListMultimap<Layout, IHighlightHandler> highlightHandlers = ArrayListMultimap.create();
     public static final ItemStackMap<String> nameOverrides = new ItemStackMap<>();
     public static final ItemStackSet hiddenItems = new ItemStackSet();
+    public static final AnyMultiItemFilter hiddenItemsRules = new AnyMultiItemFilter();
     public static final ItemStackSet finiteItems = new ItemStackSet();
-    public static final LinkedListMultimap<Item, ItemStack> itemOverrides = LinkedListMultimap.create();
-    public static final LinkedListMultimap<Item, ItemStack> itemVariants = LinkedListMultimap.create();
+    public static final ArrayListMultimap<Item, ItemStack> itemOverrides = ArrayListMultimap.create();
+    public static final ArrayListMultimap<Item, ItemStack> itemVariants = ArrayListMultimap.create();
 
     public static final LinkedList<IInfiniteItemHandler> infiniteHandlers = new LinkedList<>();
-    public static final LinkedListMultimap<Block, IHighlightHandler> highlightIdentifiers = LinkedListMultimap.create();
+    public static final ArrayListMultimap<Block, IHighlightHandler> highlightIdentifiers = ArrayListMultimap.create();
     public static final HashSet<Class<? extends Slot>> fastTransferExemptions = new HashSet<>();
 
-    public static final Object2ObjectHashMap<Item, String> itemOwners = new Object2ObjectHashMap<>();
-
-    private static class ItemStackKey {
-
-        private final int itemId;
-        private final int damage;
-        private final int count;
-        private final int tagHash;
-
-        public ItemStackKey(ItemStack stack) {
-            itemId = Item.getIdFromItem(stack.getItem());
-            damage = stack.getItemDamage();
-            count = stack.stackSize;
-            tagHash = stack.hasTagCompound() ? stack.getTagCompound().hashCode() : 0;
-        }
-
-        @Override
-        public int hashCode() {
-            return 31 * itemId + damage + 31 * count + tagHash;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if(!(o instanceof ItemStackKey)) return false;
-            ItemStackKey other = (ItemStackKey)o;
-            return itemId == other.itemId && damage == other.damage;
-        }
-    }
-
-    // lookup optimisation
-    public static final Object2ObjectHashMap<ItemStackKey, String> itemSearchNames = new Object2ObjectHashMap<>();
+    public static final HashMap<Item, String> itemOwners = new HashMap<>();
 
     public static boolean isHidden(ItemStack stack) {
-        return hiddenItems.contains(stack);
+        return hiddenItems.contains(stack) || hiddenItemsRules.matches(stack);
     }
 
+    @Deprecated
     public static boolean isHidden(Item item) {
         return hiddenItems.containsAll(item);
     }
@@ -133,27 +134,29 @@ public class ItemInfo {
         addInfiniteHandlers();
         addInputHandlers();
         addIDDumps();
-        addHiddenItemFilter();
-        addSearchOptimisation();
+        addSearchProviders();
+        PresetsList.load();
+        ItemList.collapsibleItems.load();
+        ItemList.loadCallbacks.add(TooltipFilter::populateSearchMap);
     }
 
-    private static void addSearchOptimisation() {
-        ItemList.loadCallbacks.add(ItemInfo::populateSearchMap);
-    }
+    private static void addSearchProviders() {
+        API.addSearchProvider(
+                new SearchParserProvider('\0', "default", EnumChatFormatting.RESET, PatternItemFilter::new) {
 
-    private static void populateSearchMap() {
-        Map<ItemStackKey, ItemStack> keysToItems = new HashMap<>();
+                    @Override
+                    public SearchMode getSearchMode() {
+                        return SearchMode.ALWAYS;
+                    }
 
-        for (ItemStack stack : ItemList.items) {
-            ItemStackKey key = new ItemStackKey(stack);
-            keysToItems.put(key, stack);
-        }
-
-        itemSearchNames.entrySet().removeIf(entry -> !keysToItems.containsKey(entry.getKey()));
-    }
-
-    private static void addHiddenItemFilter() {
-        API.addItemFilter(() -> item -> !hiddenItems.contains(item));
+                });
+        API.addSearchProvider(
+                new SearchParserProvider('@', "modName", EnumChatFormatting.LIGHT_PURPLE, ModNameFilter::new));
+        API.addSearchProvider(
+                new SearchParserProvider('$', "oreDict", EnumChatFormatting.AQUA, OreDictionaryFilter::new));
+        API.addSearchProvider(new SearchParserProvider('#', "tooltip", EnumChatFormatting.YELLOW, TooltipFilter::new));
+        API.addSearchProvider(
+                new SearchParserProvider('&', "identifier", EnumChatFormatting.GOLD, IdentifierFilter::new));
     }
 
     private static void addIDDumps() {
@@ -188,7 +191,7 @@ public class ItemInfo {
             public String[] dump(Block block, int id, String name) {
                 final Item item = Item.getItemFromBlock(block);
                 return new String[] { name, Integer.toString(id), Boolean.toString(item != null),
-                        ItemInfo.itemOwners.get(block), block.getClass().getCanonicalName(),
+                        ItemInfo.itemOwners.get(item), block.getClass().getCanonicalName(),
                         item != null ? EnumChatFormatting.getTextWithoutFormattingCodes(
                                 GuiContainerManager.itemDisplayNameShort(new ItemStack(item))) : "null" };
             }
@@ -439,13 +442,12 @@ public class ItemInfo {
         addEntityEgg(EntityIronGolem.class, 0xC5C2C1, 0xffe1cc);
     }
 
-    @SuppressWarnings("unchecked")
     private static void addEntityEgg(Class<?> entity, int i, int j) {
         int id = (Integer) EntityList.classToIDMapping.get(entity);
         EntityList.entityEggs.put(id, new EntityEggInfo(id, i, j));
     }
 
-    public static List<ItemStack> getIdentifierItems(World world, EntityPlayer player, MovingObjectPosition hit) {
+    public static ArrayList<ItemStack> getIdentifierItems(World world, EntityPlayer player, MovingObjectPosition hit) {
         int x = hit.blockX;
         int y = hit.blockY;
         int z = hit.blockZ;
@@ -453,38 +455,29 @@ public class ItemInfo {
 
         ArrayList<ItemStack> items = new ArrayList<>();
 
-        LinkedList<IHighlightHandler> handlers = new LinkedList<>();
-        handlers.addAll(highlightIdentifiers.get(null));
-        handlers.addAll(highlightIdentifiers.get(mouseoverBlock));
+        ArrayList<IHighlightHandler> handlers = new ArrayList<>();
+        if (highlightIdentifiers.containsKey(null)) handlers.addAll(highlightIdentifiers.get(null));
+        if (highlightIdentifiers.containsKey(mouseoverBlock)) handlers.addAll(highlightIdentifiers.get(mouseoverBlock));
         for (IHighlightHandler ident : handlers) {
             ItemStack item = ident.identifyHighlight(world, player, hit);
-            if (item != null) {
-                items.add(item);
-                return items;
-            }
+            if (item != null) items.add(item);
         }
+
+        if (items.size() > 0) return items;
 
         ItemStack pick = mouseoverBlock.getPickBlock(hit, world, x, y, z, player);
-        if (pick != null) {
-            items.add(pick);
-            return items;
-        }
-
-        if (mouseoverBlock instanceof IShearable) {
-            IShearable shearable = (IShearable) mouseoverBlock;
-            if (shearable.isShearable(new ItemStack(Items.shears), world, x, y, z)) {
-                items.addAll(shearable.onSheared(new ItemStack(Items.shears), world, x, y, z, 0));
-                return items;
-            }
-        }
+        if (pick != null) items.add(pick);
 
         try {
             items.addAll(mouseoverBlock.getDrops(world, x, y, z, world.getBlockMetadata(x, y, z), 0));
         } catch (Exception ignored) {}
-
-        if (items.isEmpty()) {
-            items.add(new ItemStack(mouseoverBlock, 1, world.getBlockMetadata(x, y, z)));
+        if (mouseoverBlock instanceof IShearable) {
+            IShearable shearable = (IShearable) mouseoverBlock;
+            if (shearable.isShearable(new ItemStack(Items.shears), world, x, y, z))
+                items.addAll(shearable.onSheared(new ItemStack(Items.shears), world, x, y, z, 0));
         }
+
+        if (items.size() == 0) items.add(0, new ItemStack(mouseoverBlock, 1, world.getBlockMetadata(x, y, z)));
 
         return items;
     }
@@ -495,7 +488,7 @@ public class ItemInfo {
 
     public static List<String> getText(ItemStack itemStack, World world, EntityPlayer player,
             MovingObjectPosition mop) {
-        List<String> retString = new LinkedList<>();
+        List<String> retString = new ArrayList<>();
 
         for (ItemInfo.Layout layout : ItemInfo.Layout.values())
             for (IHighlightHandler handler : ItemInfo.highlightHandlers.get(layout))
@@ -504,10 +497,8 @@ public class ItemInfo {
         return retString;
     }
 
+    @Deprecated
     public static String getSearchName(ItemStack stack) {
-        return itemSearchNames.computeIfAbsent(
-                new ItemStackKey(stack),
-                key -> EnumChatFormatting.getTextWithoutFormattingCodes(
-                        GuiContainerManager.concatenatedDisplayName(stack, true).toLowerCase()));
+        return GuiContainerManager.concatenatedDisplayName(stack, true).toLowerCase();
     }
 }

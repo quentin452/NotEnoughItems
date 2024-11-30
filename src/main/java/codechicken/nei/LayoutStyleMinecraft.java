@@ -9,9 +9,9 @@ import static codechicken.nei.LayoutManager.gamemode;
 import static codechicken.nei.LayoutManager.heal;
 import static codechicken.nei.LayoutManager.itemPanel;
 import static codechicken.nei.LayoutManager.itemPresenceOverlays;
+import static codechicken.nei.LayoutManager.itemZoom;
 import static codechicken.nei.LayoutManager.magnet;
 import static codechicken.nei.LayoutManager.options;
-import static codechicken.nei.LayoutManager.presetsPanel;
 import static codechicken.nei.LayoutManager.rain;
 import static codechicken.nei.LayoutManager.searchField;
 import static codechicken.nei.LayoutManager.timeButtons;
@@ -105,6 +105,7 @@ public class LayoutStyleMinecraft extends LayoutStyle {
 
         itemPanel.resize(gui);
         bookmarkPanel.resize(gui);
+        itemZoom.resize(gui);
 
         options.x = isEnabled() ? 0 : 6;
         options.y = isEnabled() ? gui.height - 22 : gui.height - 28;
@@ -120,11 +121,6 @@ public class LayoutStyleMinecraft extends LayoutStyle {
         dropDown.w = 150;
         dropDown.y = 0;
         dropDown.x = (gui.width - gui.xSize) / 2 + gui.xSize - dropDown.w;
-
-        presetsPanel.h = 16;
-        presetsPanel.w = 150;
-        presetsPanel.y = 2;
-        presetsPanel.x = (gui.width - gui.xSize) / 2 + gui.xSize - presetsPanel.w;
 
         searchField.h = 20;
         if (NEIClientConfig.isSearchWidgetCentered()) {

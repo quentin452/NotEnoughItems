@@ -12,10 +12,11 @@ import org.lwjgl.opengl.GL11;
 
 import codechicken.lib.render.CCRenderState;
 import codechicken.lib.vec.Rectangle4i;
+import codechicken.nei.AutoFocusWidget.INEIAutoFocusSearchEnable;
 import codechicken.nei.api.INEIGuiHandler;
 import codechicken.nei.api.TaggedInventoryArea;
 
-public class GuiExtendedCreativeInv extends GuiContainer implements INEIGuiHandler {
+public class GuiExtendedCreativeInv extends GuiContainer implements INEIGuiHandler, INEIAutoFocusSearchEnable {
 
     public GuiExtendedCreativeInv(Container par1Container) {
         super(par1Container);
@@ -59,13 +60,13 @@ public class GuiExtendedCreativeInv extends GuiContainer implements INEIGuiHandl
     }
 
     @Override
-    protected void handleMouseClick(Slot p_146984_1_, int p_146984_2_, int p_146984_3_, int p_146984_4_) {
+    protected void handleMouseClick(Slot slotIn, int slotId, int clickedButton, int clickType) {
 
         // Hack for armor slots, because they are outside the container
-        if (p_146984_1_ != null && p_146984_4_ == 4 && p_146984_1_.xDisplayPosition < 0) {
-            p_146984_4_ = 0;
+        if (slotIn != null && clickType == 4 && slotIn.xDisplayPosition < 0) {
+            clickType = 0;
         }
 
-        super.handleMouseClick(p_146984_1_, p_146984_2_, p_146984_3_, p_146984_4_);
+        super.handleMouseClick(slotIn, slotId, clickedButton, clickType);
     }
 }

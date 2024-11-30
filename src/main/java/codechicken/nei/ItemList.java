@@ -1,16 +1,21 @@
 package codechicken.nei;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.IIcon;
 
 import com.google.common.collect.ArrayListMultimap;
@@ -20,7 +25,6 @@ import codechicken.nei.ThreadOperationTimer.TimeoutException;
 import codechicken.nei.api.ItemFilter;
 import codechicken.nei.api.ItemFilter.ItemFilterProvider;
 import codechicken.nei.api.ItemInfo;
-import codechicken.nei.guihook.GuiContainerManager;
 
 public class ItemList {
 
@@ -36,11 +40,12 @@ public class ItemList {
      * Updates to this should be synchronised on this
      */
     public static final List<ItemFilterProvider> itemFilterers = new LinkedList<>();
-
     public static final List<ItemsLoadedCallback> loadCallbacks = new LinkedList<>();
+    public static final CollapsibleItems collapsibleItems = new CollapsibleItems();
 
     private static final HashSet<Item> erroredItems = new HashSet<>();
     private static final HashSet<String> stackTraces = new HashSet<>();
+    private static final HashMap<ItemStack, Integer> ordering = new HashMap<>();
     /**
      * Unlike {@link LayoutManager#itemsLoaded}, this indicates whether item loading is actually finished or not.
      */
@@ -62,6 +67,20 @@ public class ItemList {
         }
     }
 
+    public static class NegatedItemFilter implements ItemFilter {
+
+        public ItemFilter filter;
+
+        public NegatedItemFilter(ItemFilter filter) {
+            this.filter = filter;
+        }
+
+        @Override
+        public boolean matches(ItemStack item) {
+            return this.filter == null || !this.filter.matches(item);
+        }
+    }
+
     public static class PatternItemFilter implements ItemFilter {
 
         public Pattern pattern;
@@ -72,7 +91,20 @@ public class ItemList {
 
         @Override
         public boolean matches(ItemStack item) {
-            return pattern.matcher(ItemInfo.getSearchName(item)).find();
+            String displayName = EnumChatFormatting.getTextWithoutFormattingCodes(item.getDisplayName());
+
+            if (displayName != null && !displayName.isEmpty() && pattern.matcher(displayName).find()) {
+                return true;
+            }
+
+            if (item.hasDisplayName()) {
+                displayName = EnumChatFormatting
+                        .getTextWithoutFormattingCodes(item.getItem().getItemStackDisplayName(item));
+
+                return displayName != null && !displayName.isEmpty() && pattern.matcher(displayName).find();
+            }
+
+            return false;
         }
     }
 
@@ -84,6 +116,10 @@ public class ItemList {
             this.filters = filters;
         }
 
+        public AllMultiItemFilter(ItemFilter... filters) {
+            this(new LinkedList<>(Arrays.asList(filters)));
+        }
+
         public AllMultiItemFilter() {
             this(new LinkedList<>());
         }
@@ -91,9 +127,10 @@ public class ItemList {
         @Override
         public boolean matches(ItemStack item) {
             for (ItemFilter filter : filters) try {
-                if (!filter.matches(item)) return false;
+                if (filter != null && !filter.matches(item)) return false;
             } catch (Exception e) {
-                NEIClientConfig.logger.error("Exception filtering " + item + " with " + filter, e);
+                NEIClientConfig.logger
+                        .error("Exception filtering " + item + " with " + filter + " (" + e.getMessage() + ")", e);
             }
 
             return true;
@@ -115,9 +152,10 @@ public class ItemList {
         @Override
         public boolean matches(ItemStack item) {
             for (ItemFilter filter : filters) try {
-                if (filter.matches(item)) return true;
+                if (filter != null && filter.matches(item)) return true;
             } catch (Exception e) {
-                NEIClientConfig.logger.error("Exception filtering " + item + " with " + filter, e);
+                NEIClientConfig.logger
+                        .error("Exception filtering " + item + " with " + filter + " (" + e.getMessage() + ")", e);
             }
 
             return false;
@@ -132,9 +170,10 @@ public class ItemList {
     public static boolean itemMatchesAll(ItemStack item, List<ItemFilter> filters) {
         for (ItemFilter filter : filters) {
             try {
-                if (!filter.matches(item)) return false;
+                if (filter != null && !filter.matches(item)) return false;
             } catch (Exception e) {
-                NEIClientConfig.logger.error("Exception filtering " + item + " with " + filter, e);
+                NEIClientConfig.logger
+                        .error("Exception filtering " + item + " with " + filter + " (" + e.getMessage() + ")", e);
             }
         }
 
@@ -156,7 +195,9 @@ public class ItemList {
     public static List<ItemFilter> getItemFilters() {
         LinkedList<ItemFilter> filters = new LinkedList<>();
         synchronized (itemFilterers) {
-            for (ItemFilterProvider p : itemFilterers) filters.add(p.getFilter());
+            for (ItemFilterProvider p : itemFilterers) {
+                filters.add(p.getFilter());
+            }
         }
         return filters;
     }
@@ -168,7 +209,7 @@ public class ItemList {
             for (int damage = 0; damage < 16; damage++) try {
                 ItemStack itemstack = new ItemStack(item, 1, damage);
                 IIcon icon = item.getIconIndex(itemstack);
-                String name = GuiContainerManager.concatenatedDisplayName(itemstack, false);
+                String name = getTooltip(itemstack);
                 String s = name + "@" + (icon == null ? 0 : icon.hashCode());
                 if (!damageIconSet.contains(s)) {
                     damageIconSet.add(s);
@@ -185,15 +226,55 @@ public class ItemList {
             }
         }
 
+        private String getTooltip(ItemStack stack) {
+            try {
+                return String.join("\n", stack.getTooltip(Minecraft.getMinecraft().thePlayer, false));
+            } catch (Throwable ignored) {}
+
+            return "";
+        }
+
+        private void updateOrdering(List<ItemStack> items) {
+            ItemList.ordering.clear();
+
+            ItemSorter.sort(items);
+
+            if (!ItemList.collapsibleItems.isEmpty()) {
+                HashMap<Integer, Integer> groups = new HashMap<>();
+                int orderIndex = 0;
+
+                for (ItemStack stack : items) {
+                    final int groupIndex = ItemList.collapsibleItems.getGroupIndex(stack);
+
+                    if (groupIndex == -1) {
+                        ItemList.ordering.put(stack, orderIndex++);
+                    } else {
+
+                        if (!groups.containsKey(groupIndex)) {
+                            groups.put(groupIndex, orderIndex++);
+                        }
+
+                        ItemList.ordering.put(stack, groups.get(groupIndex));
+                    }
+                }
+            } else {
+                int orderIndex = 0;
+
+                for (ItemStack stack : items) {
+                    ItemList.ordering.put(stack, orderIndex++);
+                }
+            }
+        }
+
         @Override
         @SuppressWarnings("unchecked")
         public void execute() {
-            // System.out.println("Executing NEI Item Loading");
             ThreadOperationTimer timer = getTimer(NEIClientConfig.getItemLoadingTimeout());
+            LayoutManager.itemsLoaded = true;
             loadFinished = false;
 
-            LinkedList<ItemStack> items = new LinkedList<>();
-            LinkedList<ItemStack> permutations = new LinkedList<>();
+            List<ItemStack> items = new LinkedList<>();
+            List<ItemStack> permutations = new LinkedList<>();
             ListMultimap<Item, ItemStack> itemMap = ArrayListMultimap.create();
 
             timer.setLimit(NEIClientConfig.getItemLoadingTimeout());
@@ -208,13 +289,20 @@ public class ItemList {
                     permutations.clear();
                     permutations.addAll(ItemInfo.itemOverrides.get(item));
 
-                    if (permutations.isEmpty()) item.getSubItems(item, null, permutations);
+                    if (permutations.isEmpty()) {
+                        item.getSubItems(item, null, permutations);
+                    }
 
-                    if (permutations.isEmpty()) damageSearch(item, permutations);
+                    if (permutations.isEmpty()) {
+                        damageSearch(item, permutations);
+                    }
 
                     permutations.addAll(ItemInfo.itemVariants.get(item));
 
                     timer.reset();
+
+                    permutations = permutations.stream().filter(stack -> !ItemInfo.isHidden(stack))
+                            .collect(Collectors.toCollection(ArrayList::new));
 
                     items.addAll(permutations);
                     itemMap.putAll(item, permutations);
@@ -229,32 +317,49 @@ public class ItemList {
             ItemList.itemMap = itemMap;
             for (ItemsLoadedCallback callback : loadCallbacks) callback.itemsLoaded();
 
-            updateFilter.restart();
+            if (interrupted()) return;
+            ItemList.collapsibleItems.updateCache(items);
+            updateOrdering(items);
 
             loadFinished = true;
+            updateFilter.restart();
         }
     };
 
-    public static ForkJoinPool getPool(int poolSize) {
+    public static ForkJoinPool forkJoinPool;
+
+    static {
+        final ForkJoinPool.ForkJoinWorkerThreadFactory factory = new ForkJoinPool.ForkJoinWorkerThreadFactory() {
+
+            private int workerId;
+
+            @Override
+            public ForkJoinWorkerThread newThread(ForkJoinPool pool) {
+                final ForkJoinWorkerThread worker = ForkJoinPool.defaultForkJoinWorkerThreadFactory.newThread(pool);
+                worker.setName("NEI-worker-thread-" + workerId++);
+                return worker;
+            }
+        };
+        int poolSize = Runtime.getRuntime().availableProcessors() * 2 / 3;
         if (poolSize < 1) poolSize = 1;
-
-        return new ForkJoinPool(poolSize);
+        forkJoinPool = new ForkJoinPool(poolSize, factory, null, false);
     }
-
-    public static final int numProcessors = Runtime.getRuntime().availableProcessors();
-    public static ForkJoinPool forkJoinPool = getPool(numProcessors * 2 / 3);
 
     public static final RestartableTask updateFilter = new RestartableTask("NEI Item Filtering") {
 
+        private int compare(ItemStack o1, ItemStack o2) {
+            return Integer.compare(ItemList.ordering.get(o1), ItemList.ordering.get(o2));
+        }
+
         @Override
         public void execute() {
-            // System.out.println("Executing NEI Item Filtering");
-            ArrayList<ItemStack> filtered;
+            if (!loadFinished) return;
             ItemFilter filter = getItemListFilter();
+            ArrayList<ItemStack> filtered;
 
             try {
                 filtered = ItemList.forkJoinPool.submit(
-                        () -> items.parallelStream().filter(PresetsWidget::matches).filter(filter::matches)
+                        () -> items.parallelStream().filter(filter::matches)
                                 .collect(Collectors.toCollection(ArrayList::new)))
                         .get();
             } catch (InterruptedException | ExecutionException e) {
@@ -264,7 +369,7 @@ public class ItemList {
             }
 
             if (interrupted()) return;
-            ItemSorter.sort(filtered);
+            filtered.sort(this::compare);
             if (interrupted()) return;
             ItemPanel.updateItemList(filtered);
         }

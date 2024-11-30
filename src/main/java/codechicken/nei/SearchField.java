@@ -1,21 +1,24 @@
 package codechicken.nei;
 
-import static codechicken.nei.NEIClientConfig.world;
-
 import java.util.LinkedList;
 import java.util.List;
+import java.util.function.Function;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
+import net.minecraft.client.Minecraft;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraftforge.fluids.FluidStack;
 
 import codechicken.lib.gui.GuiDraw;
-import codechicken.nei.ItemList.AnyMultiItemFilter;
-import codechicken.nei.ItemList.EverythingItemFilter;
-import codechicken.nei.ItemList.PatternItemFilter;
-import codechicken.nei.api.API;
+import codechicken.nei.ItemList.NothingItemFilter;
+import codechicken.nei.SearchTokenParser.ISearchParserProvider;
+import codechicken.nei.SearchTokenParser.SearchMode;
 import codechicken.nei.api.ItemFilter;
 import codechicken.nei.api.ItemFilter.ItemFilterProvider;
+import codechicken.nei.recipe.StackInfo;
 import codechicken.nei.util.TextHistory;
 
 public class SearchField extends TextField implements ItemFilterProvider {
@@ -23,6 +26,7 @@ public class SearchField extends TextField implements ItemFilterProvider {
     /**
      * Interface for returning a custom filter based on search field text
      */
+    @Deprecated
     public static interface ISearchProvider {
 
         /**
@@ -36,34 +40,98 @@ public class SearchField extends TextField implements ItemFilterProvider {
         public ItemFilter getFilter(String searchText);
     }
 
-    private static class DefaultSearchProvider implements ISearchProvider {
+    public static class SearchParserProvider implements ISearchParserProvider {
 
-        @Override
-        public boolean isPrimary() {
-            return false;
+        protected final Function<Pattern, ItemFilter> createFilter;
+        protected final String name;
+        protected final char prefix;
+        protected final EnumChatFormatting highlightedColor;
+
+        public SearchParserProvider(char prefix, String name, EnumChatFormatting highlightedColor,
+                Function<Pattern, ItemFilter> createFilter) {
+            this.prefix = prefix;
+            this.name = name;
+            this.highlightedColor = highlightedColor;
+            this.createFilter = createFilter;
         }
 
         @Override
         public ItemFilter getFilter(String searchText) {
-            Pattern pattern = getPattern(searchText);
-            return pattern == null ? null : new PatternItemFilter(pattern);
+            Pattern pattern = SearchField.getPattern(searchText);
+
+            if (pattern != null) {
+                return this.createFilter(pattern);
+            }
+
+            return new NothingItemFilter();
+        }
+
+        protected ItemFilter createFilter(Pattern pattern) {
+            final ItemFilter filter = this.createFilter.apply(pattern);
+
+            return filter == null ? new NothingItemFilter() : filter;
+        }
+
+        @Override
+        public char getPrefix() {
+            return this.prefix;
+        }
+
+        @Override
+        public EnumChatFormatting getHighlightedColor() {
+            return this.highlightedColor;
+        }
+
+        @Override
+        public SearchMode getSearchMode() {
+            return SearchMode.fromInt(NEIClientConfig.getIntSetting("inventory.search." + this.name + "SearchMode"));
         }
     }
 
+    public static class GuiSearchField extends FormattedTextField {
+
+        protected final SearchTokenParser searchParser;
+
+        public GuiSearchField() {
+            this(SearchField.searchParser);
+        }
+
+        public GuiSearchField(SearchTokenParser searchParser) {
+            super(Minecraft.getMinecraft().fontRenderer, 0, 0, 0, 0);
+            this.searchParser = searchParser;
+            setFormatter(new SearchTextFormatter(searchParser));
+        }
+
+        public ItemFilter getFilter() {
+            return getFilter(getText());
+        }
+
+        public ItemFilter getFilter(String filterText) {
+            return this.searchParser.getFilter(filterText);
+        }
+
+    }
+
+    @Deprecated
     public static List<ISearchProvider> searchProviders = new LinkedList<>();
+    public static final SearchTokenParser searchParser = new SearchTokenParser();
     private static final TextHistory history = new TextHistory();
     private boolean isVisible = true;
-
-    long lastclicktime;
+    private long lastclicktime;
 
     public SearchField(String ident) {
         super(ident);
-        API.addItemFilter(this);
-        API.addSearchProvider(new DefaultSearchProvider());
+    }
+
+    @Override
+    protected void initInternalTextField() {
+        field = new GuiSearchField();
+        field.setMaxStringLength(maxSearchLength);
+        field.setCursorPositionZero();
     }
 
     public static boolean searchInventories() {
-        return world.nbt.getBoolean("searchinventories");
+        return NEIClientConfig.world.nbt.getBoolean("searchinventories");
     }
 
     public boolean isVisible() {
@@ -85,14 +153,37 @@ public class SearchField extends TextField implements ItemFilterProvider {
 
     @Override
     public void draw(int mousex, int mousey) {
-
         super.draw(mousex, mousey);
 
         if (searchInventories()) {
-            GuiDraw.drawGradientRect(x - 1, y - 1, 1, h + 2, 0xFFFFFF00, 0xFFC0B000); // Left
-            GuiDraw.drawGradientRect(x - 1, y - 1, w + 2, 1, 0xFFFFFF00, 0xFFC0B000); // Top
-            GuiDraw.drawGradientRect(x + w, y - 1, 1, h + 2, 0xFFFFFF00, 0xFFC0B000); // Left
-            GuiDraw.drawGradientRect(x - 1, y + h, w + 2, 1, 0xFFFFFF00, 0xFFC0B000); // Bottom
+            GuiDraw.drawGradientRect(
+                    field.xPosition - 1,
+                    field.yPosition - 1,
+                    1,
+                    field.height + 2,
+                    0xFFFFFF00,
+                    0xFFC0B000); // Left
+            GuiDraw.drawGradientRect(
+                    field.xPosition - 1,
+                    field.yPosition - 1,
+                    field.width + 2,
+                    1,
+                    0xFFFFFF00,
+                    0xFFC0B000); // Top
+            GuiDraw.drawGradientRect(
+                    field.xPosition + field.width,
+                    field.yPosition - 1,
+                    1,
+                    field.height + 2,
+                    0xFFFFFF00,
+                    0xFFC0B000); // Left
+            GuiDraw.drawGradientRect(
+                    field.xPosition - 1,
+                    field.yPosition + field.height,
+                    field.width + 2,
+                    1,
+                    0xFFFFFF00,
+                    0xFFC0B000); // Bottom
         }
     }
 
@@ -101,7 +192,6 @@ public class SearchField extends TextField implements ItemFilterProvider {
         if (button == 0) {
             if (focused() && (System.currentTimeMillis() - lastclicktime < 400)) { // double click
                 NEIClientConfig.world.nbt.setBoolean("searchinventories", !searchInventories());
-                NEIClientConfig.world.saveNBT();
             }
             lastclicktime = System.currentTimeMillis();
         }
@@ -111,10 +201,11 @@ public class SearchField extends TextField implements ItemFilterProvider {
     @Override
     public void onTextChange(String oldText) {
         final String newText = text();
-        if (newText.length() > 0) NEIClientConfig.logger.debug("Searching for " + text());
-
-        NEIClientConfig.setSearchExpression(newText);
-        ItemList.updateFilter.restart();
+        if (!newText.equals(oldText)) {
+            if (newText.length() > 0) NEIClientConfig.logger.debug("Searching for " + newText);
+            NEIClientConfig.setSearchExpression(newText);
+            ItemList.updateFilter.restart();
+        }
     }
 
     @Override
@@ -123,11 +214,11 @@ public class SearchField extends TextField implements ItemFilterProvider {
         if (isVisible() && NEIClientConfig.isKeyHashDown("gui.search")) {
             setFocus(true);
         }
-        if (NEIClientConfig.isKeyHashDown("gui.getprevioussearch") && focused()) {
+        if (focused() && NEIClientConfig.isKeyHashDown("gui.getprevioussearch")) {
             handleNavigateHistory(TextHistory.Direction.PREVIOUS);
         }
 
-        if (NEIClientConfig.isKeyHashDown("gui.getnextsearch") && focused()) {
+        if (focused() && NEIClientConfig.isKeyHashDown("gui.getnextsearch")) {
             handleNavigateHistory(TextHistory.Direction.NEXT);
         }
     }
@@ -138,36 +229,97 @@ public class SearchField extends TextField implements ItemFilterProvider {
     }
 
     public static Pattern getPattern(String search) {
-        switch (NEIClientConfig.getIntSetting("inventory.searchmode")) {
+        return getPattern(search, NEIClientConfig.getIntSetting("inventory.search.patternMode"));
+    }
+
+    public static Pattern getPattern(String search, int patternMode) {
+        switch (patternMode) {
             case 0: // plain
-                search = "\\Q" + search + "\\E";
+                search = Pattern.quote(search);
                 break;
-            case 1:
-                search = search.replace(".", "").replace("?", ".").replace("*", ".+?");
+            case 1: // extended
+
+                if (search.length() >= 3 && search.startsWith("r/") && search.endsWith("/")) {
+                    search = search.substring(2, search.length() - 1);
+                } else {
+                    final Matcher matcher = Pattern.compile("(\\?|\\*)").matcher(search);
+                    final StringBuilder cleanedString = new StringBuilder();
+                    int lastEndIndex = 0;
+
+                    while (matcher.find()) {
+                        cleanedString.append(Pattern.quote(search.substring(lastEndIndex, matcher.start())));
+
+                        switch (matcher.group(0).charAt(0)) {
+                            case '?':
+                                cleanedString.append(".");
+                                break;
+                            case '*':
+                                cleanedString.append(".+?");
+                                break;
+                            default:
+                                break;
+                        }
+
+                        lastEndIndex = matcher.end();
+                    }
+
+                    search = cleanedString + Pattern.quote(search.substring(lastEndIndex, search.length()));
+                }
+                break;
+            default:
                 break;
         }
 
-        Pattern pattern = null;
-        try {
-            pattern = Pattern.compile(search);
-        } catch (PatternSyntaxException ignored) {}
-        return pattern == null || pattern.toString().length() == 0 ? null : pattern;
+        if (!search.isEmpty()) {
+            try {
+                return Pattern.compile(search, Pattern.MULTILINE | Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+            } catch (PatternSyntaxException ignored) {}
+        }
+
+        return null;
+    }
+
+    public static String getEscapedSearchText(ItemStack stack) {
+        final FluidStack fluidStack = StackInfo.isFluidContainer(stack) ? null : StackInfo.getFluid(stack);
+        String displayName;
+
+        if (fluidStack != null) {
+            displayName = fluidStack.getLocalizedName();
+        } else {
+            displayName = stack.getDisplayName();
+        }
+
+        return getEscapedSearchText(displayName);
+    }
+
+    public static String getEscapedSearchText(String text) {
+        text = EnumChatFormatting.getTextWithoutFormattingCodes(text);
+
+        switch (NEIClientConfig.getIntSetting("inventory.search.patternMode")) {
+            case 1:
+                text = text.replaceAll("[\\?|\\*]", "\\\\$0");
+                break;
+            case 2:
+                text = text.replaceAll("[{}()\\[\\].+*?^$\\\\|]", "\\\\$0");
+                break;
+            default:
+                break;
+        }
+
+        if (text.contains(" ") && NEIClientConfig.getBooleanSetting("inventory.search.quoteDropItemName")) {
+            text = "\"" + text + "\"";
+        }
+
+        return text;
     }
 
     @Override
     public ItemFilter getFilter() {
-        String s_filter = text().toLowerCase();
+        return ((GuiSearchField) field).getFilter();
+    }
 
-        List<ItemFilter> primary = new LinkedList<>();
-        List<ItemFilter> secondary = new LinkedList<>();
-        for (ISearchProvider p : searchProviders) {
-            ItemFilter filter = p.getFilter(s_filter);
-            if (filter != null) (p.isPrimary() ? primary : secondary).add(filter);
-        }
-
-        if (!primary.isEmpty()) return new AnyMultiItemFilter(primary);
-        if (!secondary.isEmpty()) return new AnyMultiItemFilter(secondary);
-        return new EverythingItemFilter();
+    public static ItemFilter getFilter(String filterText) {
+        return SearchField.searchParser.getFilter(filterText);
     }
 
     @Override

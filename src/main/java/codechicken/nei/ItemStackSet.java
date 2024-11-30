@@ -27,6 +27,11 @@ public class ItemStackSet extends ItemStackMap<ItemStack> implements ItemFilter 
         put(item, item);
     }
 
+    public ItemStackSet addAll(Iterable<ItemStack> items) {
+        for (ItemStack item : items) add(item);
+        return this;
+    }
+
     public boolean contains(ItemStack item) {
         return get(item) != null;
     }

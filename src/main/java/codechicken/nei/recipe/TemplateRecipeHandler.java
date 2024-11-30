@@ -34,14 +34,18 @@ import com.google.common.base.Stopwatch;
 
 import codechicken.lib.vec.Rectangle4i;
 import codechicken.nei.ItemList;
+import codechicken.nei.ItemList.AllMultiItemFilter;
 import codechicken.nei.NEIClientConfig;
 import codechicken.nei.NEIClientUtils;
 import codechicken.nei.NEIServerUtils;
 import codechicken.nei.PositionedStack;
+import codechicken.nei.PresetsList;
 import codechicken.nei.api.DefaultOverlayRenderer;
 import codechicken.nei.api.IOverlayHandler;
 import codechicken.nei.api.IRecipeOverlayRenderer;
 import codechicken.nei.api.IStackPositioner;
+import codechicken.nei.api.ItemFilter;
+import codechicken.nei.api.ItemInfo;
 import codechicken.nei.guihook.GuiContainerManager;
 import codechicken.nei.guihook.IContainerInputHandler;
 import codechicken.nei.guihook.IContainerTooltipHandler;
@@ -174,7 +178,7 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
 
         /**
          * This will perform default cycling of ingredients, mulitItem capable
-         * 
+         *
          * @param cycle       Current cycle step
          * @param ingredients List of ItemStacks to cycle
          * @return The provided list of ingredients, with their permutations cycled to a different permutation, if one
@@ -182,28 +186,51 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
          */
         public List<PositionedStack> getCycledIngredients(int cycle, List<PositionedStack> ingredients) {
 
-            if (!NEIClientUtils.shiftKey()) {
+            if (!NEIClientUtils.shiftKey() && !disableCycledIngredients) {
                 if (NEIClientConfig.useJEIStyledCycledIngredients()) {
                     jeiStyledRenderPermutation(ingredients, cycle);
                 } else {
-                    for (int itemIndex = 0; itemIndex < ingredients.size(); itemIndex++) {
-                        randomRenderPermutation(ingredients.get(itemIndex), cycle + itemIndex);
-                    }
+                    randomRenderPermutation(ingredients, cycle);
                 }
             }
 
             return ingredients;
         }
 
-        public void randomRenderPermutation(PositionedStack stack, long cycle) {
-            Random rand = new Random(cycle + offset);
-            stack.setPermutationToRender(Math.abs(rand.nextInt()) % stack.items.length);
+        public void randomRenderPermutation(List<PositionedStack> stacks, long cycle) {
+            final ItemFilter filter = getItemFilter();
+            final int randCycle = Math.abs(new Random(cycle + offset).nextInt());
+
+            for (PositionedStack stack : stacks) {
+                if (stack.items.length <= 1) continue;
+                ArrayList<Integer> filtered = getFilteredIngredientAlternatives(stack, filter);
+                if (filtered.isEmpty()) {
+                    stack.setPermutationToRender((int) (randCycle % stack.items.length));
+                } else {
+                    stack.setPermutationToRender(filtered.get((int) (randCycle % filtered.size())));
+                }
+            }
+
         }
 
-        public void jeiStyledRenderPermutation(List<PositionedStack> stacks, long cycle) {
+        protected void jeiStyledRenderPermutation(List<PositionedStack> stacks, long cycle) {
+            final ItemFilter filter = getItemFilter();
+
             for (PositionedStack stack : stacks) {
-                stack.setPermutationToRender((int) (cycle % stack.items.length));
+                if (stack.items.length <= 1) continue;
+                ArrayList<Integer> filtered = getFilteredIngredientAlternatives(stack, filter);
+                if (filtered.isEmpty()) {
+                    stack.setPermutationToRender((int) (cycle % stack.items.length));
+                } else {
+                    stack.setPermutationToRender(filtered.get((int) (cycle % filtered.size())));
+                }
             }
+        }
+
+        @Deprecated
+        public void randomRenderPermutation(PositionedStack stack, long cycle) {
+            Random rand = new Random(cycle + offset);
+            stack.setPermutationToRender((int) (Math.abs(rand.nextInt()) % stack.items.length));
         }
 
         public void setIngredientPermutation(Collection<PositionedStack> ingredients, ItemStack ingredient) {
@@ -396,9 +423,30 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
      */
     public LinkedList<RecipeTransferRect> transferRects = new LinkedList<>();
 
+    public static boolean disableCycledIngredients = true;
+
     public TemplateRecipeHandler() {
         loadTransferRects();
         RecipeTransferRectHandler.registerRectsToGuis(getRecipeTransferRectGuis(), transferRects);
+    }
+
+    public static ItemFilter getItemFilter() {
+        return new AllMultiItemFilter(
+                item -> !ItemInfo.isHidden(item),
+                PresetsList.getItemFilter(),
+                GuiRecipe.searchField != null ? GuiRecipe.searchField.getFilter() : null);
+    }
+
+    protected static ArrayList<Integer> getFilteredIngredientAlternatives(PositionedStack stack, ItemFilter filter) {
+        final ArrayList<Integer> filtered = new ArrayList<>();
+
+        for (int i = 0; i < stack.items.length; i++) {
+            if (filter.matches(stack.items[i])) {
+                filtered.add(i);
+            }
+        }
+
+        return filtered;
     }
 
     /**
@@ -541,11 +589,12 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
 
     public TemplateRecipeHandler newInstance() {
         try {
-            // Use the non parallel version since we might already be using the forkJoinPool and might have no threads
+            // Use the non parallel version since we might already be using the forkJoinPool
+            // and might have no threads
             // available
             // This will ideally have been pre-cached elsewhere and will be a NOOP
             findFuelsOnce();
-            return getClass().newInstance();
+            return getClass().getConstructor().newInstance();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -680,8 +729,12 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
 
     @Override
     public boolean mouseClicked(GuiRecipe<?> gui, int button, int recipe) {
-        if (button == 0) return transferRect(gui, recipe, false);
-        else if (button == 1) return transferRect(gui, recipe, true);
+
+        if (button == 0) {
+            return transferRect(gui, recipe, false);
+        } else if (button == 1) {
+            return transferRect(gui, recipe, true);
+        }
 
         return false;
     }
@@ -690,27 +743,67 @@ public abstract class TemplateRecipeHandler implements ICraftingHandler, IUsageH
     public boolean mouseScrolled(GuiRecipe<?> gui, int scroll, int recipe) {
         if (!NEIClientUtils.shiftKey()) return false;
 
-        final Point offset = gui.getRecipePosition(recipe);
         final Point pos = getMousePosition();
+        final Point offset = gui.getRecipePosition(recipe);
         final Point relMouse = new Point(pos.x - gui.guiLeft - offset.x, pos.y - gui.guiTop - offset.y);
+        final PositionedStack overStack = getIngredientMouseOver(relMouse.x, relMouse.y, recipe);
 
-        for (PositionedStack pStack : getIngredientStacks(recipe)) {
-            if ((new Rectangle4i(pStack.relx, pStack.rely, 18, 18)).contains(relMouse.x, relMouse.y)) {
-                int index = pStack.items.length + scroll;
+        if (overStack != null && overStack.items.length > 1) {
+            final ItemFilter filter = getItemFilter();
 
-                for (int i = 0; i < pStack.items.length; i++) {
-                    if (NEIServerUtils.areStacksSameTypeCraftingWithNBT(pStack.items[i], pStack.item)) {
-                        index = index + i;
-                        break;
-                    }
+            if (NEIClientConfig.useJEIStyledCycledIngredients()) {
+                ItemStack stack = overStack.item;
+                for (PositionedStack pStack : getIngredientStacks(recipe)) {
+                    shiftPermutationToRender(pStack, stack, scroll, filter);
                 }
-
-                pStack.setPermutationToRender(index % pStack.items.length);
-                return true;
+            } else {
+                shiftPermutationToRender(overStack, overStack.item, scroll, filter);
             }
+
+            return true;
         }
 
         return false;
+    }
+
+    private void shiftPermutationToRender(PositionedStack pStack, ItemStack stack, int scroll, ItemFilter filter) {
+        if (!pStack.containsWithNBT(stack)) return;
+
+        final List<Integer> filtered = getFilteredIngredientAlternatives(pStack, filter);
+        int index = 0;
+
+        if (filtered.isEmpty()) {
+
+            for (int i = 0; i < pStack.items.length; i++) {
+                if (NEIServerUtils.areStacksSameTypeCraftingWithNBT(pStack.items[i], stack)) {
+                    index = i;
+                    break;
+                }
+            }
+
+            pStack.setPermutationToRender((int) ((pStack.items.length - scroll + index) % pStack.items.length));
+        } else {
+
+            for (int i = 0; i < filtered.size(); i++) {
+                if (NEIServerUtils.areStacksSameTypeCraftingWithNBT(pStack.items[filtered.get(i)], stack)) {
+                    index = i;
+                    break;
+                }
+            }
+
+            pStack.setPermutationToRender(filtered.get((int) ((filtered.size() - scroll + index) % filtered.size())));
+        }
+    }
+
+    private PositionedStack getIngredientMouseOver(int mousex, int mousey, int recipe) {
+
+        for (PositionedStack pStack : getIngredientStacks(recipe)) {
+            if ((new Rectangle4i(pStack.relx, pStack.rely, 18, 18)).contains(mousex, mousey)) {
+                return pStack;
+            }
+        }
+
+        return null;
     }
 
     private boolean transferRect(GuiRecipe<?> gui, int recipe, boolean usage) {

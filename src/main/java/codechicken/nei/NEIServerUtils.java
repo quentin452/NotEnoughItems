@@ -6,7 +6,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.util.*;
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.zip.ZipException;
 
 import net.minecraft.command.ICommandSender;
@@ -53,7 +56,7 @@ public class NEIServerUtils {
     public static void toggleRaining(World world, boolean notify) {
         boolean raining = !world.isRaining();
         if (!raining) // turn off
-            world.provider.resetRainAndThunder();
+            ((WorldServer) world).provider.resetRainAndThunder();
         else world.getWorldInfo().setRaining(!isRaining(world));
 
         if (notify)
@@ -86,9 +89,8 @@ public class NEIServerUtils {
         else return player.inventory.getStackInSlot(slot);
     }
 
-    @SuppressWarnings("unchecked")
     public static void deleteAllItems(EntityPlayerMP player) {
-        for (Slot slot : (List<Slot>) player.openContainer.inventorySlots) slot.putStack(null);
+        for (Slot slot : player.openContainer.inventorySlots) slot.putStack(null);
 
         player.sendContainerAndContentsToPlayer(player.openContainer, player.openContainer.getInventory());
     }
@@ -170,7 +172,7 @@ public class NEIServerUtils {
                 && (stack1.getItemDamage() == stack2.getItemDamage()
                         || stack1.getItemDamage() == OreDictionary.WILDCARD_VALUE
                         || stack2.getItemDamage() == OreDictionary.WILDCARD_VALUE
-                        || Objects.requireNonNull(stack1.getItem()).isDamageable());
+                        || stack1.getItem().isDamageable());
     }
 
     /**
@@ -186,7 +188,7 @@ public class NEIServerUtils {
                 && (stack1.getItemDamage() == stack2.getItemDamage()
                         || stack1.getItemDamage() == OreDictionary.WILDCARD_VALUE
                         || stack2.getItemDamage() == OreDictionary.WILDCARD_VALUE
-                        || Objects.requireNonNull(stack1.getItem()).isDamageable())
+                        || stack1.getItem().isDamageable())
                 && NBTHelper.matchTag(stack1.getTagCompound(), stack2.getTagCompound());
     }
 
@@ -365,20 +367,13 @@ public class NEIServerUtils {
         throw new RuntimeException(msg);
     }
 
+    @SuppressWarnings("unchecked")
     public static ItemStack[] extractRecipeItems(Object obj) {
-        if (obj instanceof ItemStack) {
-            return new ItemStack[] { (ItemStack) obj };
-        }
-        if (obj instanceof ItemStack[]) {
-            return (ItemStack[]) obj;
-        }
-        if (obj instanceof List) {
-            List<?> list = (List<?>) obj;
-            if (!list.isEmpty() && list.get(0) instanceof ItemStack) {
-                return list.toArray(new ItemStack[0]);
-            }
-        }
-        return new ItemStack[0];
+        if (obj instanceof ItemStack) return new ItemStack[] { (ItemStack) obj };
+        if (obj instanceof ItemStack[]) return (ItemStack[]) obj;
+        if (obj instanceof List) return ((List<ItemStack>) obj).toArray(new ItemStack[0]);
+
+        throw new ClassCastException(obj + " not an ItemStack, ItemStack[] or List<ItemStack?");
     }
 
     public static List<Integer> getRange(final int start, final int end) {

@@ -11,11 +11,12 @@ import codechicken.nei.ItemPanel.ItemPanelSlot;
 import codechicken.nei.api.GuiInfo;
 import codechicken.nei.api.INEIGuiHandler;
 import codechicken.nei.guihook.GuiContainerManager;
+import codechicken.nei.guihook.IContainerTooltipHandler;
 import codechicken.nei.recipe.GuiCraftingRecipe;
 import codechicken.nei.recipe.GuiRecipe;
 import codechicken.nei.recipe.GuiUsageRecipe;
 
-public abstract class PanelWidget extends Widget {
+public abstract class PanelWidget extends Widget implements IContainerTooltipHandler {
 
     protected static final int PADDING = 2;
 
@@ -42,11 +43,14 @@ public abstract class PanelWidget extends Widget {
         pagePrev = new Button("Prev") {
 
             public boolean onButtonPress(boolean rightclick) {
-                if (!rightclick) {
+
+                if (rightclick) {
+                    grid.setPage(0);
+                } else {
                     grid.shiftPage(-1);
-                    return true;
                 }
-                return false;
+
+                return true;
             }
 
             @Override
@@ -57,11 +61,14 @@ public abstract class PanelWidget extends Widget {
         pageNext = new Button("Next") {
 
             public boolean onButtonPress(boolean rightclick) {
-                if (!rightclick) {
+
+                if (rightclick) {
+                    grid.setPage(grid.getNumPages() - 1);
+                } else {
                     grid.shiftPage(1);
-                    return true;
                 }
-                return false;
+
+                return true;
             }
 
             @Override
@@ -192,12 +199,11 @@ public abstract class PanelWidget extends Widget {
     }
 
     @Override
-    public void postDrawTooltips(int mx, int my, List<String> tooltip) {
-        grid.postDrawTooltips(mx, my, tooltip);
-    }
-
-    @Override
     public void mouseDragged(int mousex, int mousey, int button, long heldTime) {
+        if (mouseDownSlot >= grid.realItems.size()) {
+            mouseDownSlot = -1;
+        }
+
         if (mouseDownSlot >= 0 && draggedStack == null
                 && NEIClientUtils.getHeldItem() == null
                 && NEIClientConfig.hasSMPCounterPart()) {
@@ -214,27 +220,7 @@ public abstract class PanelWidget extends Widget {
 
     @Override
     public boolean handleClick(int mousex, int mousey, int button) {
-
         if (handleClickExt(mousex, mousey, button)) return true;
-
-        if (NEIClientUtils.getHeldItem() != null) {
-
-            if (!grid.contains(mousex, mousey)) {
-                return false;
-            }
-
-            if (NEIClientConfig.canPerformAction("delete") && NEIClientConfig.canPerformAction("item")) {
-                if (button == 1) {
-                    NEIClientUtils.decreaseSlotStack(-999);
-                } else {
-                    NEIClientUtils.deleteHeldItem();
-                }
-            } else {
-                NEIClientUtils.dropHeldItem();
-            }
-
-            return true;
-        }
 
         ItemPanelSlot hoverSlot = getSlotMouseOver(mousex, mousey);
         if (hoverSlot != null) {
@@ -328,9 +314,10 @@ public abstract class PanelWidget extends Widget {
         ItemPanelSlot hoverSlot = getSlotMouseOver(mousex, mousey);
 
         if (hoverSlot != null && hoverSlot.slotIndex == mouseDownSlot && draggedStack == null) {
-            ItemStack item = hoverSlot.item;
+            ItemStack item = hoverSlot.item.copy();
 
-            if (NEIController.manager.window instanceof GuiRecipe || !NEIClientConfig.canCheatItem(item)) {
+            if (NEIController.manager.window instanceof GuiRecipe || NEIClientUtils.shiftKey()
+                    || !NEIClientConfig.canCheatItem(item)) {
 
                 if (button == 0) {
                     GuiCraftingRecipe.openRecipeGui("item", item);
@@ -394,4 +381,21 @@ public abstract class PanelWidget extends Widget {
     public boolean contains(int px, int py) {
         return grid.contains(px, py);
     }
+
+    @Override
+    public List<String> handleTooltip(GuiContainer gui, int mousex, int mousey, List<String> currenttip) {
+        return currenttip;
+    }
+
+    @Override
+    public List<String> handleItemDisplayName(GuiContainer gui, ItemStack itemstack, List<String> currenttip) {
+        return currenttip;
+    }
+
+    @Override
+    public List<String> handleItemTooltip(GuiContainer gui, ItemStack itemstack, int mousex, int mousey,
+            List<String> currenttip) {
+        return currenttip;
+    }
+
 }

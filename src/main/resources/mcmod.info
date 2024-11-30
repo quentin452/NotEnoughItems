@@ -9,6 +9,6 @@
         "credits": "Alexandria - original idea",
         "license": "LGPL-3.0",
         "authorList": [ "ChickenBones", "mitchej123" ],
-        "dependencies": ["CodeChickenCore","optimizationsandtweaks"]
+        "dependencies": [ "CodeChickenCore" ]
     }
 ]
